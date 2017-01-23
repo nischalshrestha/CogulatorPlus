@@ -50,7 +50,7 @@ package classes {
 		private static const magenta:TextFormat = new TextFormat();
 		private static const errorred:TextFormat = new TextFormat();
 		
-		static var methods:Array = ["goal", "also", "as"];
+		static var methods:Array = ["goal", "also", "as", "if", "then", "goto"];
 		static var errorInLine:Boolean = false;
 		
 		black.color = SolarizedPalette.black;

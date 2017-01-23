@@ -1,0 +1,20 @@
+AddOperatorText.as:107:					if (subStr == "Goal:" || subStr == "Also:") dots++;
+AddOperatorText.as:129:			while ( (index = txt.indexOf("Also:", index + 1) ) != -1){
+AppSettings.as:91:			//need to also set the autocomplete txt size and background as a function of size
+AutoComplete.as:137:			if (field.text.toLowerCase().substring(startPara, endPara).indexOf("goal:") == -1 || field.text.toLowerCase().substring(startPara, endPara).indexOf("also:") == -1) return true;
+FirstRun.as:160:							+ "\n" + ".Also: Attend to New Button as eyes"
+FirstRun.as:175:							+ "\n" + ". Also: Move Hands to Keyboard as hands"
+FirstRun.as:197:							+ "\n" + ".Also: Saccade to Collection Field as eyes_too"
+FirstRun.as:215:			mentalMathTxt = "*One of the features we're currently working on in Cogulator is an analysis of Working Memory load in the Gantt chart. To simulate working memory load, Cogulator adds chunks to working memory each time certain operators are used. Those operators include: Store, Recall, Look, Search, Perceptual_processor, Listen, or Think. Store can also be used to explicitly force a chunk into working memory. In this example, we model someone adding two, three digit numbers in their head. Each chunk added to working memory is represented as a colored block in the Gantt chart. Over time, those memories begin to decay, until they're no longer accessible. That decay is symbolized in the chart with the use of transparency - the blocks becoming more and more translucent until they leave memory altogether. Where memory load exceeds seven chunks, the display is marked with a red triangle."
+FirstRun.as:274:							+ "\n" + "*Not, I've interleaved the methods here for readability, but that has no impact on model execution. Everything in the Also: Take Notes method executes independently of the Goal: Listen to Lecture operators. The only exception is when operators are competing for the same resource."
+FirstRun.as:277:							+ "\n" + ". Also: Take Notes"
+GomsProcessor.as:47:		private static var newThreadNumber:int; // = 0; //used as a thread name for "Also" when one is not provided
+GomsProcessor.as:105:					if (stepOperator != "goal" && stepOperator != "also") {
+GomsProcessor.as:140:				if (steps[i].operator == "goal" || steps[i].operator == "also") steps.splice(i, 1);
+GomsProcessor.as:293:						} else if (steps[i].operator == "also") {
+OperatorsSidebar.as:43:		public var goalControl:Array = new Array ("Goal", "Also");
+OperatorsSidebar.as:172:			} else if (operatorButton.appelation == "Also"){
+OperatorsSidebar.as:173:				return(operatorButton.appelation + ": also_name as new_thread");
+SyntaxColor.as:53:		static var methods:Array = ["goal", "also", "as"];
+SyntaxColor.as:203:			threadLabel = "base"; //set here, may be modified by also method below;
+SyntaxColor.as:208:			if (operator == "also"){
