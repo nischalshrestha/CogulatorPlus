@@ -104,7 +104,7 @@ package classes {
 				 if (f.text.charAt(c) == ".") dots++;
 				 else if (f.text.charAt(c) != " ") {
 					var subStr:String = f.text.substring(c, c + 5);
-					if (subStr == "Goal:" || subStr == "Also:") dots++;
+					if (subStr == "Goal:" || subStr == "Also:" || subStr == "Then:") dots++;
 					break; 
 				 }
 			 }
@@ -130,6 +130,23 @@ package classes {
 				return true;
 			}
 			
+			index = -1;
+			while ( (index = txt.indexOf("If:", index + 1) ) != -1){
+				return true;
+			}
+			index = -1;
+			while ( (index = txt.indexOf("Then:", index + 1) ) != -1){
+				return true;
+			}
+			index = -1;
+			while ( (index = txt.indexOf("SetState:", index + 1) ) != -1){
+				return true;
+			}
+			
+			index = -1;
+			while ( (index = txt.indexOf("CreateState:", index + 1) ) != -1){
+				return true;
+			}
 			return false;
 		}
 		

@@ -43,6 +43,8 @@ package classes {
 		private static var threadTracker:Dictionary; // tracks the active method for each thread
 		private static var resourceAvailability:Dictionary; 
 		private static var threadAvailability:Dictionary;
+		private static var goalIndex:Dictionary;
+		
 		
 		private static var newThreadNumber:int; // = 0; //used as a thread name for "Also" when one is not provided
 				
@@ -64,6 +66,7 @@ package classes {
 			threadTracker = new Dictionary(); //hashmap that tracks that active goal for each thread
 			resourceAvailability = new Dictionary();
 			threadAvailability = new Dictionary();
+			goalIndex = new Dictionary();
 			
 			//(<resource name>, <time resource comes available>)
 			var to:TimeObject = new TimeObject(0,0);
@@ -76,12 +79,42 @@ package classes {
 			resourceAvailability["cognitive"] = cognitiveArray;
 			resourceAvailability["hands"] = handsArray;
 						
+			
 			for (var key:Object in $.errors) delete $.errors[key];  //clear out all $.errors
+			indexGoalLines();
 			generateStepsArray();
+						
 			
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
 			
 			return(new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
+		}
+			
+		private static function indexGoalLines(){
+			var codeLines:Array = $.codeTxt.text.split("\r");
+			var beginIndex:int = 0;
+			var endIndex:int = codeLines[0].length;
+			
+		
+			for (var lineIndex:int = 0; lineIndex < codeLines.length; lineIndex++ ) {	
+				var line = codeLines[lineIndex];
+				endIndex = beginIndex + line.length;
+				if (StringUtils.trim(line) != "") {
+					var syntaxArray:Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
+					
+					var indentCount:int 	 = syntaxArray[0]; 
+					var stepOperator:String  = syntaxArray[1]; 
+					var stepLabel:String 	 = trimLabel(syntaxArray[2]); 
+					var stepTime:String 	 = syntaxArray[3];
+					var chunkNames:Array	 = syntaxArray[7];
+				
+					var methodGoal, methodThread:String;
+					if (stepOperator == "goal") {
+						goalIndex[stepLabel] = lineIndex;
+					} 
+				}
+				beginIndex = endIndex + 1;
+			}
 		}
 			
 		private static function generateStepsArray(){

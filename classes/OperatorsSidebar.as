@@ -40,7 +40,7 @@ package  classes {
 		private var $:Global = Global.getInstance();
 
 		private var currentAddOperatorTime:String;
-		public var goalControl:Array = new Array ("Goal", "Also", "If", "Then","GoTo");
+		public var goalControl:Array = new Array ("Goal", "Also", "If", "Then","GoTo", "CreateState", "SetState");
 		private var labelX:int = 15;
 		private var operatorX:int = 25;
 		private var lineY:int = 10;
@@ -174,7 +174,11 @@ package  classes {
 			} else if (operatorButton.appelation == "GoTo"){
 				return (operatorButton.appelation + ": goal_name");
 			} else if (operatorButton.appelation == "If"){
-				return (operatorButton.appelation + ": goal_name processed");
+				return (operatorButton.appelation + ": state_name value");
+			} else if (operatorButton.appelation == "CreateState"){
+				return (operatorButton.appelation + ": state_name value");
+			} else if (operatorButton.appelation == "SetState"){
+				return (operatorButton.appelation + ": state_name value");
 			}else if(operatorButton.appelation == "Then"){
 				return (operatorButton.appelation + ": then_name");
 			} else if (operatorButton.appelation == "Say" || operatorButton.appelation == "Hear") {
