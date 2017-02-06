@@ -27,11 +27,16 @@
 			//	//var codeLines = $.codeTxt.text.split('/r');
 		}
 
+		//Purpose: Get rid of all CreateState,SetState,If, and EndIf, GoTos
+		//Input: file as specified in TextLoader and EventListener
+		//Output: Array wrappedLines:  CPM-GOMS model in the format of original cogulator
+		//TODO: nothing is being done with wrappedLines currently
+		//TODO: requires change if lines is made global
 		function parseFile(evt: Event): void {
 			//For all those pesky whitespace characters
 			var lines: Array = ops.txt.split('\n');
-			for (var removeWhiteSpaceCounter: int = 0; removeWhiteSpaceCounter < lines.length; removeWhiteSpaceCounter++) {
-				lines[removeWhiteSpaceCounter] = StringUtils.trim(lines[removeWhiteSpaceCounter]);
+			for (var WhiteSpaceCounter: int = 0; WhiteSpaceCounter < lines.length; WhiteSpaceCounter++) {
+				lines[WhiteSpaceCounter] = StringUtils.trim(lines[WhiteSpaceCounter]);
 			}
 
 			//The model that will be fed to the GOMS processor
@@ -59,7 +64,7 @@
 					case "GoTo":
 						//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
 						var goalName = frontTrimmedLine.substring(frontTrimmedLine.indexOf(':') + 2,frontTrimmedLine.length);
-						var goalTable:Dictionary = indexGoalLines(lines, lineCounter);
+						var goalTable:Dictionary = indexGoalLines(lines);
 						lineCounter = goalTable[goalName];
 						wrappedLines.push(lines[lineCounter]);
 						break;
@@ -70,62 +75,62 @@
 				lineCounter++;
 			}
 
+			//Print out final result to be fed to GOMSProcessor
 			/*for (var wrapperLinesCounter: int = 0; wrapperLinesCounter < wrappedLines.length; wrapperLinesCounter++) {
 				trace(wrappedLines[wrapperLinesCounter]);
 			}*/
-
-
-
 		}
 
 
-		//Does not enforce scope
-		function indexGoalLines(lines: Array, curGoToLine:int): Dictionary {
+		//Purpose: finds the lineNumbers of all goals in the program
+		//Input: Array lines: all lines of the original program
+		//Output: Dictionary of goals and lines in the form: 
+		//		key: goal_name
+		//		value: lineNumber
+		//Notes: Does not enforce scope
+		//		 Goal line assumed to be in the form "...Goal: goal_name"
+		//TODO: requires change if lines is made global
+		function indexGoalLines(lines: Array): Dictionary {
 			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
 			var goalsInScope = new Dictionary();
 			
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = trimIndents(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if(i = curGoToLine){
-					trace("Found current goTo");
-				}
-				if(tokens[0] == "If"){
-					
-				} else if (tokens[0] == "EndIf"){
-				
-				} else if (tokens[0] == "Goal:"){
-					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
-					goalsInScope[goalName] = i;
-				}
-				/*if (tokens[0] == "Goal:") {
+				if (tokens[0] == "Goal:") {
+					//Goal line assumed to be in the form "Goal: goal_name"
 					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
 					goalIndexesByName[goalName] = i;
-				}*/
+				}
 			}
 			return goalIndexesByName;
 		}
 
 
-		//Input: subset of lines iwth ifstatement on line 0;
+		//Purpose: Finds next value of lineCounter. 
+		//Input: Array lines: subset of lines iwth ifstatement on line 0;
 		//Output: int: the number of lines the lineCounter should jump
 		//	ifTrue: 0;
 		//	ifFalse: the line of the matching EndIf;
-		function nextIfLine(ifStatementAndBeyond: Array): int {
-			var ifIsTrue: Boolean = evaluateIfStatement(ifStatementAndBeyond[0]);
+		//TODO: requires change if lines is made global
+		function nextIfLine(lines: Array): int {
+			var ifIsTrue: Boolean = evaluateIfStatement(lines[0]);
 			if (ifIsTrue) {
 				//do not jump any lines, lineCounter in parseloop will iterate to next line
 				return 0;
 			} else {
 				//Jump to the end of the ifStatement
-				return findMatchingEndIf(ifStatementAndBeyond);
+				return findMatchingEndIf(lines);
 			}
 		}
 
 
+		//Purpose: Returns the lineNumber of the matching EndIf
 		//Input: subset of total lines with ifstatement on line 0;
 		//Output: int of the matching EndIf
-		//Notes: Should handle nested ifs (fingers crossed)
+		//		  if no ENDIF is found, returns end of program
+		//Notes: Should handle nested ifs (fingers crossed)  
+		//TODO: requires change if lines is made global
 		function findMatchingEndIf(lines: Array): int {
 			var numIfs: int = 1;
 			var numEndIfs: int = 0;
@@ -147,7 +152,10 @@
 
 
 
-		//Checks the truth value of the input against the statetable
+		//Purpose: Checks the truth value of the input against the statetable
+		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
+		//Output: Boolean: if an entry in StateTable matches exactly the key and value
+		//
 		//Hint: if debugging, check that whitespace characters have been trimmed
 		//in both the table and the input
 		function evaluateIfStatement(ifLine: String): Boolean {
@@ -160,33 +168,36 @@
 		}
 
 
-		//Changes an existing state, all values are represented as strings.
+		//Purpose: Creates new state in the stateTable, all values are represented as strings.
+		//Input: String key, String value (target1, visited)
+		//Output: none
+		//	SideEffect:  An new entry in global stateTable is added
 		//TODO:  Add in error handling
 		function createState(key: String, value: String) {
 			stateTable[key] = value;
-			trace("Created state: " + key + " with value: " + value);
 		}
 
-		//Adds a state into the stateTable, all values are represented as strings.
+		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
+		//Input: String key, String value (target1, visited)
+		//Output: none
+		//	SideEffect:  An existing entry in global stateTable is changed
 		//TODO:  Add in error handling
 		function setState(key: String, value: String) {
 			stateTable[key] = value;
-			trace("Changed state: " + key + " with value: " + value);
 		}
 
 
 
-		//removes spaces and periods from front of line so that we can identify the operator
+		//Purpose: removes spaces and periods from front of line so that we can identify the operator
+		//Input: String: raw line 
+		//	Example: "...CreateState goal_name value"
+		//Output: String: trimmed line 
+		//	Example: "CreateState goal_name value"
 		function trimIndents(line: String): String {
 			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
 				line = line.substr(1);
 			}
 			return line;
-
 		}
-
-
-
 	}
-
 }
