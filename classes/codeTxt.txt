@@ -1,0 +1,142 @@
+Search "codeTxt" (128 hits in 13 files)
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\SyntaxColor.as (34 hits)
+	Line 67: 			var codeLines:Array = $.codeTxt.text.split("\r");
+	Line 83: 			var lineNumber = WrappedLineUtils.getLineNumber($.codeTxt, $.codeTxt.caretIndex);
+	Line 83: 			var lineNumber = WrappedLineUtils.getLineNumber($.codeTxt, $.codeTxt.caretIndex);
+	Line 85: 			var begindex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);
+	Line 86: 			var endex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNumber);
+	Line 128: 			var lineTxt:String = $.codeTxt.text.substring(beginIndex, endIndex);
+	Line 132: 			if (beginIndex > -1 && endIndex <= $.codeTxt.length) $.codeTxt.setTextFormat(grey, beginIndex, endIndex);
+	Line 132: 			if (beginIndex > -1 && endIndex <= $.codeTxt.length) $.codeTxt.setTextFormat(grey, beginIndex, endIndex);
+	Line 149: 				$.codeTxt.setTextFormat(black, beginIndex + 0, beginIndex + d);
+	Line 183: 			var beginIndex = WrappedLineUtils.getLineIndex($.codeTxt, lineNum);
+	Line 184: 			var endIndex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNum);
+	Line 185: 			var lineTxt:String = $.codeTxt.text.substring(beginIndex, endIndex);
+	Line 191: 			$.codeTxt.setTextFormat(errorred, beginIndex + chunkStartIndex + 1, beginIndex + chunkEndIndex - 1);
+	Line 196: 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
+	Line 204: 			if (lineLabel.length > 0) $.codeTxt.setTextFormat(black, beginIndex + index, beginIndex + endIndex);
+	Line 212: 					$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
+	Line 217: 					if (threadLabel.length > 0) $.codeTxt.setTextFormat(black, beginIndex + index, beginIndex + index + threadLabel.length);
+	Line 238: 					$.codeTxt.setTextFormat(errorred, beginIndex + index, beginIndex + endIndex);
+	Line 240: 				} else $.codeTxt.setTextFormat(blue, beginIndex + index, beginIndex + endIndex);
+	Line 248: 			if (lineLabel.length > 0) $.codeTxt.setTextFormat(black, beginIndex + index, beginIndex + endIndex);
+	Line 264: 						if (chunkNamedInError != chunkName) $.codeTxt.setTextFormat(cyan, beginIndex + leftAngleBracketIndex + 1, beginIndex + rightAngleBracketIndex);
+	Line 265: 						else $.codeTxt.setTextFormat(errorred, beginIndex + leftAngleBracketIndex + 1, beginIndex + rightAngleBracketIndex);
+	Line 280: 				$.codeTxt.setTextFormat(black, beginIndex + leftParenIndex, beginIndex + leftParenIndex + 1); //set right paren to black
+	Line 284: 					$.codeTxt.setTextFormat(black, beginIndex + rightParenIndex, beginIndex + rightParenIndex + 1); //set right paren to black
+	Line 294: 							$.codeTxt.setTextFormat(errorred, beginIndex + index, beginIndex + endIndex);
+	Line 300: 						$.codeTxt.setTextFormat(black, beginIndex + index, beginIndex + endIndex);
+	Line 312: 								$.codeTxt.setTextFormat(errorred, beginIndex + index, beginIndex + endIndex);
+	Line 318: 							$.codeTxt.setTextFormat(green, beginIndex + index, beginIndex + endIndex); //set units to green
+	Line 326: 						$.codeTxt.setTextFormat(errorred, beginIndex + rightParenIndex, beginIndex + rightParenIndex + 1);
+	Line 331: 					$.codeTxt.setTextFormat(errorred, beginIndex + leftParenIndex, beginIndex + lineTxt.length);
+	Line 355: 			var startPara:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex));
+	Line 355: 			var startPara:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex));
+	Line 355: 			var startPara:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex));
+	Line 360: 			return ( beginIndex + $.codeTxt.getParagraphLength(beginIndex) );
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\TextHighlighter.as (5 hits)
+	Line 36: 			index = WrappedLineUtils.getLineIndex($.codeTxt, lineNo);
+	Line 37: 			lngth = WrappedLineUtils.getLineLength($.codeTxt, lineNo); 
+	Line 39: 			$.codeTxt.setSelection(index, index + lngth);
+	Line 40: 			$.codeTxt.scrollV--; //sometimes the selection jump doesn't show the line.  this is insurance.
+	Line 41: 			$.stage.focus = $.codeTxt;
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\UndoRedo.as (10 hits)
+	Line 39: 			$.codeTxt.addEventListener(Event.CHANGE, listenForNewText);
+	Line 40: 			$.codeTxt.addEventListener(KeyboardEvent.KEY_DOWN, listenForUndoOrRedo);
+	Line 46: 			undoStack.push({txt: $.codeTxt.text, pos: $.codeTxt.caretIndex});
+	Line 46: 			undoStack.push({txt: $.codeTxt.text, pos: $.codeTxt.caretIndex});
+	Line 51: 			undoStack.push({txt: $.codeTxt.text, pos: $.codeTxt.caretIndex});
+	Line 51: 			undoStack.push({txt: $.codeTxt.text, pos: $.codeTxt.caretIndex});
+	Line 73: 			$.codeTxt.text = undoStack[undoStack.length - 1].txt;
+	Line 74: 			$.codeTxt.setSelection(undoStack[undoStack.length - 1].pos, undoStack[undoStack.length - 1].pos);
+	Line 79: 			$.codeTxt.text = redoStack[redoStack.length - 1].txt;
+	Line 80: 			$.codeTxt.setSelection(redoStack[redoStack.length - 1].pos, redoStack[redoStack.length - 1].pos);
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\AddOperatorText.as (29 hits)
+	Line 51: 			var prevStartPara:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex) - 2);
+	Line 51: 			var prevStartPara:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex) - 2);
+	Line 51: 			var prevStartPara:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex) - 2);
+	Line 52: 			var endParagraph:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex) 
+	Line 52: 			var endParagraph:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex) 
+	Line 53: 								 + $.codeTxt.getParagraphLength($.codeTxt.caretIndex);
+	Line 53: 								 + $.codeTxt.getParagraphLength($.codeTxt.caretIndex);
+	Line 56: 			indexOfSavedCaretPosition = $.codeTxt.caretIndex;
+	Line 57: 			savedText = $.codeTxt.text;
+	Line 59: 			indexOfParagraphStart = $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex);
+	Line 59: 			indexOfParagraphStart = $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex);
+	Line 60: 			if ($.codeTxt.caretIndex == indexOfParagraphStart) {
+	Line 62: 				indention = indent( $.codeTxt, prevStartPara, endParagraph, isAGoal(operatorText) );
+	Line 64: 				indexOfInsertPoint = indexOfParagraphStart + $.codeTxt.getParagraphLength($.codeTxt.caretIndex); //emd of paragraph
+	Line 64: 				indexOfInsertPoint = indexOfParagraphStart + $.codeTxt.getParagraphLength($.codeTxt.caretIndex); //emd of paragraph
+	Line 65: 				indention = indent( $.codeTxt, $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex), endParagraph, isAGoal(operatorText) );
+	Line 65: 				indention = indent( $.codeTxt, $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex), endParagraph, isAGoal(operatorText) );
+	Line 65: 				indention = indent( $.codeTxt, $.codeTxt.getFirstCharInParagraph($.codeTxt.caretIndex), endParagraph, isAGoal(operatorText) );
+	Line 68: 			originalTextFront = $.codeTxt.text.substring(0, indexOfInsertPoint);
+	Line 69: 			originalTextBack = $.codeTxt.text.substring(indexOfInsertPoint, $.codeTxt.length);
+	Line 69: 			originalTextBack = $.codeTxt.text.substring(indexOfInsertPoint, $.codeTxt.length);
+	Line 72: 			$.codeTxt.text = originalTextFront + insertText + originalTextBack;
+	Line 73: 			$.codeTxt.setSelection(indexOfInsertPoint, indexOfInsertPoint + insertText.length);
+	Line 80: 			$.codeTxt.setSelection(indexOfSavedCaretPosition, indexOfSavedCaretPosition);
+	Line 81: 			$.codeTxt.text = savedText;
+	Line 82: 			$.stage.focus = $.codeTxt;
+	Line 92: 			savedText = $.codeTxt.text;
+	Line 93: 			$.codeTxt.setSelection(indexOfInsertPoint + insertText.length - 1, indexOfInsertPoint + insertText.length - 1);
+	Line 94: 			$.stage.focus = $.codeTxt;
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\AppSettings.as (3 hits)
+	Line 39: 		private var _codeTxt:TextField;
+	Line 53: 			_codeTxt = ct;
+	Line 90: 			_codeTxt.defaultTextFormat = format;
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\GanttChart.as (1 hit)
+	Line 95: 			codeText = $.codeTxt.text;
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\GomsProcessor.as (3 hits)
+	Line 82: 			var codeLines: Array = codeWrapper($.codeTxt.text.split("\r"));
+	Line 116: 			//var codeLines:Array = $.codeTxt.text.split("\r");
+	Line 143: 			//var codeLines:Array = $.codeTxt.text.split("\r");
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\HintsTool.as (9 hits)
+	Line 276: 			var index:int = WrappedLineUtils.getLineIndex($.codeTxt, lineNo);
+	Line 277: 			$.codeTxt.setSelection(index, index);
+	Line 280: 				var metrics:TextLineMetrics = $.codeTxt.getLineMetrics(WrappedLineUtils.getNativeLineNumber($.codeTxt, lineNo));
+	Line 280: 				var metrics:TextLineMetrics = $.codeTxt.getLineMetrics(WrappedLineUtils.getNativeLineNumber($.codeTxt, lineNo));
+	Line 281: 				_highlighter.x = $.codeTxt.x;
+	Line 282: 				_highlighter.y = $.codeTxt.getCharBoundaries(index).y  + $.codeTxt.y;
+	Line 282: 				_highlighter.y = $.codeTxt.getCharBoundaries(index).y  + $.codeTxt.y;
+	Line 287: 				_errorLine.y = $.codeTxt.getCharBoundaries(index).y + $.codeTxt.y;
+	Line 287: 				_errorLine.y = $.codeTxt.getCharBoundaries(index).y + $.codeTxt.y;
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\IndentComment.as (16 hits)
+	Line 62: 			$.codeTxt.addEventListener(MouseEvent.MOUSE_DOWN, startDragToIdent);
+	Line 66: 			$.codeTxt.removeEventListener(MouseEvent.MOUSE_DOWN, startDragToIdent);
+	Line 74: 			$.codeTxt.addEventListener(NativeDragEvent.NATIVE_DRAG_UPDATE, dragToIdent);
+	Line 142: 			var beginText:String = $.codeTxt.text.substring(0, beginLineIndex);
+	Line 143: 			var endText:String = $.codeTxt.text.substring(endLineIndex, $.codeTxt.length);
+	Line 143: 			var endText:String = $.codeTxt.text.substring(endLineIndex, $.codeTxt.length);
+	Line 145: 			$.codeTxt.text = beginText + newText + endText;
+	Line 147: 			$.stage.focus = $.codeTxt;
+	Line 148: 			$.codeTxt.setSelection(beginLineIndex, beginLineIndex + newText.length);
+	Line 156: 			beginLineIndex = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionBeginIndex);
+	Line 156: 			beginLineIndex = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionBeginIndex);
+	Line 157: 			endLineIndex = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionEndIndex) + $.codeTxt.getParagraphLength($.codeTxt.selectionEndIndex) - 1;
+	Line 157: 			endLineIndex = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionEndIndex) + $.codeTxt.getParagraphLength($.codeTxt.selectionEndIndex) - 1;
+	Line 157: 			endLineIndex = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionEndIndex) + $.codeTxt.getParagraphLength($.codeTxt.selectionEndIndex) - 1;
+	Line 157: 			endLineIndex = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionEndIndex) + $.codeTxt.getParagraphLength($.codeTxt.selectionEndIndex) - 1;
+	Line 159: 			txt = $.codeTxt.text.substring(beginLineIndex, endLineIndex);
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\LineNumbers.as (4 hits)
+	Line 31: 		public static function numberTheLines(_lineNumbers:TextField, _codeTxt:TextField) {
+	Line 32: 			var numberOfLines:int = _codeTxt.numLines;
+	Line 38: 				if ( lineNo == WrappedLineUtils.getLineNumber( _codeTxt, _codeTxt.getLineOffset(i)) ) {
+	Line 38: 				if ( lineNo == WrappedLineUtils.getLineNumber( _codeTxt, _codeTxt.getLineOffset(i)) ) {
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\LineSelect.as (10 hits)
+	Line 42: 			var beginTheBegin:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionBeginIndex);
+	Line 42: 			var beginTheBegin:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionBeginIndex);
+	Line 43: 			var endOfTheBegin:int = beginTheBegin + $.codeTxt.getParagraphLength($.codeTxt.selectionBeginIndex);
+	Line 43: 			var endOfTheBegin:int = beginTheBegin + $.codeTxt.getParagraphLength($.codeTxt.selectionBeginIndex);
+	Line 45: 			var beginOfTheEnd:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionEndIndex);
+	Line 45: 			var beginOfTheEnd:int = $.codeTxt.getFirstCharInParagraph($.codeTxt.selectionEndIndex);
+	Line 46: 			var endOfTheEnd:int = beginOfTheEnd + $.codeTxt.getParagraphLength($.codeTxt.selectionEndIndex);
+	Line 46: 			var endOfTheEnd:int = beginOfTheEnd + $.codeTxt.getParagraphLength($.codeTxt.selectionEndIndex);
+	Line 49: 			var delta:int = (beginTheBegin - $.codeTxt.selectionBeginIndex) + (endOfTheEnd - $.codeTxt.selectionEndIndex);
+	Line 49: 			var delta:int = (beginTheBegin - $.codeTxt.selectionBeginIndex) + (endOfTheEnd - $.codeTxt.selectionEndIndex);
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\ModelsSidebar.as (3 hits)
+	Line 345: 			$.codeTxt.text = code.txt;
+	Line 396: 				localFileStream.writeMultiByte($.codeTxt.text, "utf-8");
+	Line 486: 			$.codeTxt.text = "";
+  C:\Users\prairierose\Documents\GitHub\CogulatorPlus\classes\OperatorsSidebar.as (1 hit)
+	Line 197: 			//LineNumbers.numberTheLines(_lineNumbers, $.codeTxt);

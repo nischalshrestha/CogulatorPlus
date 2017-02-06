@@ -1,0 +1,70 @@
+...CreateState target1 visited
+
+*In the example below - a model of creating a new model in Cogulator - we're using a mixture of NGOMSL and CPM-GOMS operators to complete the following goals:
+** 1st:  Click the '+' button to bring up the new model dialog
+** 2nd: Enter a model name
+**  3rd: Enter a collection name
+* You can see simpler ways to model this task in the 1_KLM and 2_NGOMSL examples
+
+** 1st:  Click the '+' button to bring up the new model dialog
+Goal: Point and click 'New' button
+. Attend to Hand position
+. Initiate Cursor movement
+.Also: Attend to New Button as eyes
+.Also: also_name as new_thread
+.. Attend to 'New' button
+.. Initiate Eye movement to 'New' button
+..Saccade to 'New' button
+..Look at 'New' button (100 ms)
+. Point to 'New' button
+. Cognitive_processor Verify Cursor is over 'New' button
+. Attend to Finger
+. Initiate Click
+. Click (90 ms)
+
+
+** 2nd: Enter a model name
+Goal: Enter Model Name
+.Attend to 'Model Name' Field
+.Initiate Eye movement to 'Model Name' Field
+. Also: Move Hands to Keyboard as hands
+..Attend to hands
+..Initiate move hands
+..Hands to Keyboard (300 ms)
+.Saccade to 'Model Name' Field
+.Look at 'Model Name' Field (100 ms)
+. Think of Model Name
+. Initiate Typing CPM-GOMS
+. Type CPM-GOMS
+. Attend to Typed Text
+. Initiate Eye movement to Typed Text
+. Saccade to Typed in Text
+. Look at CPM-GOMS for (150 ms) * about 300 ms to proofread a word, including saccade. So, we subtract out the saccade time of 150 ms, leaving us with 150 ms
+. Cognitive_processor Verify Correct
+. Attend to Tab Key
+. Initiate Tab Enter Key
+. Keystroke Tab key
+
+**  3rd: Enter a collection name
+Goal: Enter Collection Name
+.Attend to 'Collection Name' Field
+.Initiate Eye movement to 'Collection Name' Field
+.Also: Saccade to Collection Field as eyes_too
+.. Saccade to 'Collection Name' Field
+.. Look at 'Collection Name' Field (100 ms)
+. Think of  which Collection to place model in
+.Attend to Typing Examples
+. Initiate Typing Examples
+. Type Ex *after typing Ex the user sees the field has autocomplete
+. Attend to autocompleted text
+. Initiate saccade to autocompleted text
+. Saccade to autocompleted text
+. Look at autocompleted text (150 ms) * about 300 ms to proofread a word, including saccade. So, we subtract out the saccade time of 150 ms, leaving us with 150 ms
+. Cognitive_processor Verify autocomplete
+. Attend to Enter Key
+. Initiate Key Enter Key
+. Keystroke Enter key
+*As you build models with multitasking, remember that Cogulator is essentially just a calculator, not a genuine cognitive architecture. One of the ramifications of that is you'll need to check the Gantt chart and make sure the model is generating sensible results. For example, if a multitasked method is not completing before some dependent action in the main method, you'll need to move the multitasked method up a few lines.
+
+
+...CreateState target1 visited
