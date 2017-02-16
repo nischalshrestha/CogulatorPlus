@@ -19,11 +19,11 @@
 		var stateTable: Dictionary = new Dictionary();
 
 
-		//
+		
 		public function BranchingFunctionalityWrapper() {
 
-			ops = new TextLoader("cogulator/models/Examples/newModelText.goms");
-			ops.addEventListener("cogulator/models/Examples/newModelText.goms", parseFile);
+			ops = new TextLoader("cogulator/models/Examples/allEnemiesFastClick.goms");
+			ops.addEventListener("cogulator/models/Examples/allEnemiesFastClick.goms", parseFile);
 			//	//var codeLines = $.codeTxt.text.split('/r');
 		}
 
@@ -34,7 +34,7 @@
 		//TODO: requires change if lines is made global
 		function parseFile(evt: Event): void {
 			//For all those pesky whitespace characters
-			var lines: Array = ops.txt.split('\n');
+			var lines: Array = ops.txt.split('\r');
 			for (var WhiteSpaceCounter: int = 0; WhiteSpaceCounter < lines.length; WhiteSpaceCounter++) {
 				lines[WhiteSpaceCounter] = StringUtils.trim(lines[WhiteSpaceCounter]);
 			}
@@ -55,7 +55,8 @@
 						setState(tokens[1], tokens[2]);
 						break;
 					case "If":
-						//should return int of next line to be processed.
+						//should return int of next line to be processed based on the resolution
+						//of the if statement.
 						lineCounter += nextIfLine(lines.slice(lineCounter, lines.length));
 						break;
 					case "EndIf":
@@ -76,9 +77,10 @@
 			}
 
 			//Print out final result to be fed to GOMSProcessor
-			/*for (var wrapperLinesCounter: int = 0; wrapperLinesCounter < wrappedLines.length; wrapperLinesCounter++) {
+			
+			for (var wrapperLinesCounter: int = 0; wrapperLinesCounter < wrappedLines.length; wrapperLinesCounter++) {
 				trace(wrappedLines[wrapperLinesCounter]);
-			}*/
+			}
 		}
 
 
