@@ -152,7 +152,7 @@ package {
 			codeTxt.tabEnabled = false;
 			line.width = 710;
 			
-			var wrapper = new BranchingFunctionalityWrapper();
+			//var wrapper = new BranchingFunctionalityWrapper();
 
 
 			//	- check for update -
