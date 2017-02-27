@@ -92,45 +92,68 @@ package classes {
 			return (new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
 		}
 
-		
+
 		private static function generateStepsArray() {
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
 			var endIndex: int = codeLines[0].length;
+			stateTable = new Dictionary();
+
+			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
+			SyntaxColor.solarizeAll();
+
 
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				beginIndex = findBeginningIndex(codeLines, lineIndex);
 				endIndex = beginIndex + line.length;
-				
+
 				if (StringUtils.trim(line) != "") {
 					var frontTrimmedLine: String = trimIndents(codeLines[lineIndex]);
 					var tokens: Array = frontTrimmedLine.split(' ');
 					switch (tokens[0]) {
 						case "CreateState":
-							createState(tokens[1], tokens[2]);
-							SyntaxColor.solarizeLine(lineIndex);
+							if (hasError(tokens)) {
+								SyntaxColor.ErrorColorLine(lineIndex);
+							} else {
+								createState(tokens[1], tokens[2]);
+							}
 							break;
 						case "SetState":
-							setState(tokens[1], tokens[2]);
-							SyntaxColor.solarizeLine(lineIndex);
+							if (hasError(tokens)) {
+								SyntaxColor.ErrorColorLine(lineIndex);
+							} else {
+								setState(tokens[1], tokens[2]);
+							}
 							break;
 						case "If":
-							//should return int of next line to be processed based on the resolution
-							//of the if statement.
-							SyntaxColor.solarizeLine(lineIndex);
-							lineIndex = nextIfLine(codeLines, lineIndex);
-							//beginIndex = findBeginningIndex(codeLines, lineIndex);
+							if (hasError(tokens)) {
+								SyntaxColor.ErrorColorLine(lineIndex);
+							} else {
+								//should return int of next line to be processed based on the resolution
+								//of the if statement.
+								lineIndex = nextIfLine(codeLines, lineIndex);
+							}
 							break;
 						case "EndIf":
-							SyntaxColor.solarizeLine(lineIndex);
+							if (hasError(tokens)) {
+								SyntaxColor.ErrorColorLine(lineIndex);
+							}
 							//ignore EndIfs, but are useful in processing original statement.
 							break;
 						case "GoTo":
-							//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-							var goalName = frontTrimmedLine.substring(frontTrimmedLine.indexOf(':') + 2, frontTrimmedLine.length);
-							var goalTable: Dictionary = indexGoalLines(codeLines);
-							lineIndex = goalTable[goalName] -1 ;
+							if (hasError(tokens)) {
+								SyntaxColor.ErrorColorLine(lineIndex);
+							} else {
+								//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
+								var goalName = frontTrimmedLine.substring(frontTrimmedLine.indexOf(':') + 2, frontTrimmedLine.length);
+								var goalTable: Dictionary = indexGoalLines(codeLines);
+								if(goalTable[goalName] !== undefined){
+									lineIndex = goalTable[goalName] - 1;
+								}else{
+									SyntaxColor.ErrorColorLine(lineIndex);
+								}
+							}
 							break;
 						default:
 							var syntaxArray: Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
@@ -142,17 +165,62 @@ package classes {
 			setPrevLineNo();
 
 		}
-		
+
+		private static function noEmpty(item: * , index: int, array: Array): Boolean {
+			return item != "";
+		}
+		private static function hasError(tokens: Array): Boolean {
+			//Gets rid of empty tokens caused by whitespace
+			tokens = tokens.filter(noEmpty);
+
+
+			if (tokens[0] == "CreateState") {
+				//CreateState name value extraStuff
+				//CreateState name
+				//Name already exists
+				if (tokens.length != 3 ||
+					stateTable[tokens[1]] !== undefined
+				)
+					return true;
+			} else if (tokens[0] == "SetState") {
+				if (tokens.length != 3 ||
+					stateTable[tokens[1]] == undefined
+				)
+					return true;
+
+			} else if (tokens[0] == "If") {
+				if (tokens.length != 3 ||
+					stateTable[tokens[1]] == undefined
+				)
+					return true;
+			} else if (tokens[0] == "EndIf") {
+				if (tokens.length != 1)
+					return true;
+			} else if (tokens[0] == "GoTo") {
+				if (tokens.length <= 2)
+					return true;
+				if (tokens.slice(0, 2).join(" ") != "GoTo Goal:")
+					return true;
+				//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
+				/*				var goalName = tokens.slice(2,tokens.length).join(" ");
+				var goalTable: Dictionary = indexGoalLines(codeLines);
+				if(goalTable[goalName] == undefined)
+					return true;*/
+			}
+
+			return false;
+		}
+
 		//Purpose:  Find the "beginIndex" used in process steps array. should be the sum 
 		//			of the length of all lines that came before. Necessary for line jumping
 		// 			for if's and goTos.
 		//
 		//Input: Array lines: all lines in the editor (codeLines from generateStepArray).
 		//Output: int beginIndex: the correct index to feed solarize function
-		private static function findBeginningIndex(lines:Array, lineNumber):int{
-			var beginIndex:int = 0;
-			for(var i:int=0; i<lineNumber; i++){
-					beginIndex += lines[i].length + 1;
+		private static function findBeginningIndex(lines: Array, lineNumber): int {
+			var beginIndex: int = 0;
+			for (var i: int = 0; i < lineNumber; i++) {
+				beginIndex += lines[i].length + 1;
 			}
 			return beginIndex;
 		}
@@ -481,7 +549,7 @@ package classes {
 			stateTable[key] = value;
 		}
 
-		
+
 
 
 
@@ -490,14 +558,14 @@ package classes {
 		//Output: int: the lineNumber of the next statement to be processed
 		//	ifTrue: lineCounter - continue processing where you are.
 		//	ifFalse: the line of the matching EndIf;
-		private static function nextIfLine(lines:Array, lineCounter: int): int {
+		private static function nextIfLine(lines: Array, lineCounter: int): int {
 			var ifIsTrue: Boolean = evaluateIfStatement(lines[lineCounter]);
 			if (ifIsTrue) {
 				//do not jump any lines, lineCounter in parseloop will iterate to next line
 				return lineCounter;
 			} else {
 				//Jump to the end of the ifStatement
-				return findMatchingEndIf(lines,lineCounter);
+				return findMatchingEndIf(lines, lineCounter);
 			}
 		}
 
@@ -509,7 +577,7 @@ package classes {
 		//Notes: Should handle nested ifs (fingers crossed)  
 		//		 This method only runs when lines are to be skipped.
 		//		 However, lines should still be colorized, so solarizeLine is called regardless
-		private static function findMatchingEndIf(lines:Array, lineCounter:int): int {
+		private static function findMatchingEndIf(lines: Array, lineCounter: int): int {
 			var numIfs: int = 1;
 			var numEndIfs: int = 0;
 			for (var i = lineCounter + 1; i < lines.length; i++) {
@@ -536,10 +604,10 @@ package classes {
 		//		value: lineNumber
 		//Notes: Does not enforce scope
 		//		 Goal line assumed to be in the form "...Goal: goal_name"
-		private static function indexGoalLines(lines:Array): Dictionary {
+		private static function indexGoalLines(lines: Array): Dictionary {
 			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
 			var goalsInScope = new Dictionary();
-			
+
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = trimIndents(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');

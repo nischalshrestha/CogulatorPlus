@@ -121,6 +121,15 @@ package classes {
 		}
 
 
+		public static function ErrorColorLine(lineNumber:int){
+			
+			//get line number based on caret position
+			var beginIndex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);
+			var endIndex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNumber);
+			
+			$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+			}
+		
 			
 		//0: Number of Indents
 		//1: Operator
