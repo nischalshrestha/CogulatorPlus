@@ -98,6 +98,7 @@ package classes {
 			var beginIndex: int = 0;
 			var endIndex: int = codeLines[0].length;
 			stateTable = new Dictionary();
+			var jumps:int = 0;
 
 			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
 			SyntaxColor.solarizeAll();
@@ -142,7 +143,8 @@ package classes {
 							//ignore EndIfs, but are useful in processing original statement.
 							break;
 						case "GoTo":
-							if (hasError(tokens)) {
+							//Checks for infinite loops and errors
+							if (jumps > 25 || hasError(tokens)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
@@ -150,6 +152,7 @@ package classes {
 								var goalTable: Dictionary = indexGoalLines(codeLines);
 								if(goalTable[goalName] !== undefined){
 									lineIndex = goalTable[goalName] - 1;
+									jumps++;
 								}else{
 									SyntaxColor.ErrorColorLine(lineIndex);
 								}
@@ -166,9 +169,24 @@ package classes {
 
 		}
 
+		
+		//Filter Method to get rid of empty strings in token array.  Taken from example
+		//http://board.flashkit.com/board/showthread.php?805338-Remove-empty-elements-in-an-arry
 		private static function noEmpty(item: * , index: int, array: Array): Boolean {
 			return item != "";
 		}
+		
+		
+		//Purpose:  To determine if there is a syntax error in added operators
+		//Input: front trimmed line tokenized using space as dilimiter. 
+		//		 Operator should always be first token
+		//       Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
+		//		 Example:  GoTo,Goal:,hands,and,feet
+		//Output: Boolean 
+		//		  True if hasError.
+		//		  False if syntax is correct
+		//Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
+		//		 GenerateStepsArray when GoTo is processed.
 		private static function hasError(tokens: Array): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
@@ -220,7 +238,7 @@ package classes {
 		private static function findBeginningIndex(lines: Array, lineNumber): int {
 			var beginIndex: int = 0;
 			for (var i: int = 0; i < lineNumber; i++) {
-				beginIndex += lines[i].length + 1;
+				beginIndex += lines[i].length + 1; //Plus new line character
 			}
 			return beginIndex;
 		}
@@ -535,7 +553,6 @@ package classes {
 		//Input: String key, String value (target1, visited)
 		//Output: none
 		//	SideEffect:  An new entry in global stateTable is added
-		//TODO:  Add in error handling
 		private static function createState(key: String, value: String) {
 			stateTable[key] = value;
 		}
@@ -544,22 +561,44 @@ package classes {
 		//Input: String key, String value (target1, visited)
 		//Output: none
 		//	SideEffect:  An existing entry in global stateTable is changed
-		//TODO:  Add in error handling
 		private static function setState(key: String, value: String) {
 			stateTable[key] = value;
 		}
 
 
+		//Purpose: finds the lineNumbers of all goals in the program
+		//Input: None
+		//Output: Dictionary of goals and lines in the form: 
+		//		key: goal_name
+		//		value: lineNumber
+		//Notes: Does not enforce scope
+		//		 Goal line assumed to be in the form "...Goal: goal_name"
+		private static function indexGoalLines(lines: Array): Dictionary {
+			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
+			var goalsInScope = new Dictionary();
+
+			for (var i = 0; i < lines.length; i++) {
+				var frontTrimmedLine: String = trimIndents(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				if (tokens[0] == "Goal:") {
+					//Goal line assumed to be in the form "Goal: goal_name"
+					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
+					goalIndexesByName[goalName] = i;
+				}
+			}
+			return goalIndexesByName;
+		}
 
 
 
+		
 		//Purpose: Finds next value of lineCounter. 
 		//Input: Int lineCounter: lineNumber of Current If-statement
 		//Output: int: the lineNumber of the next statement to be processed
 		//	ifTrue: lineCounter - continue processing where you are.
 		//	ifFalse: the line of the matching EndIf;
 		private static function nextIfLine(lines: Array, lineCounter: int): int {
-			var ifIsTrue: Boolean = evaluateIfStatement(lines[lineCounter]);
+			var ifIsTrue: Boolean = evaluateIfStatement(trimIndents(lines[lineCounter]));
 			if (ifIsTrue) {
 				//do not jump any lines, lineCounter in parseloop will iterate to next line
 				return lineCounter;
@@ -597,31 +636,6 @@ package classes {
 		}
 
 
-		//Purpose: finds the lineNumbers of all goals in the program
-		//Input: None
-		//Output: Dictionary of goals and lines in the form: 
-		//		key: goal_name
-		//		value: lineNumber
-		//Notes: Does not enforce scope
-		//		 Goal line assumed to be in the form "...Goal: goal_name"
-		private static function indexGoalLines(lines: Array): Dictionary {
-			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
-			var goalsInScope = new Dictionary();
-
-			for (var i = 0; i < lines.length; i++) {
-				var frontTrimmedLine: String = trimIndents(lines[i]);
-				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "Goal:") {
-					//Goal line assumed to be in the form "Goal: goal_name"
-					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
-					goalIndexesByName[goalName] = i;
-				}
-			}
-			return goalIndexesByName;
-		}
-
-
-
 		//Purpose: Checks the truth value of the input against the statetable
 		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
 		//Output: Boolean: if an entry in StateTable matches exactly the key and value
@@ -636,6 +650,6 @@ package classes {
 
 			return (tableValueString == ifValue);
 		}
-
+		
 	}
 }

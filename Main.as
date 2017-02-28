@@ -613,7 +613,7 @@ package {
 		function hideOnClick(evt:MouseEvent):void {
 			//pressing esc also hides the autocomplete
 			completeMe.visible = false;
-			SyntaxColor.solarizeSelectedLine();
+			//SyntaxColor.solarizeSelectedLine();
 		}
 		
 
