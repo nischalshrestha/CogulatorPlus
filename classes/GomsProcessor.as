@@ -143,7 +143,8 @@ package classes {
 							//ignore EndIfs, but are useful in processing original statement.
 							break;
 						case "GoTo":
-							//Checks for infinite loops and errors
+							//Checks for infinite loops and syntax errors
+							//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
 							if (jumps > 25 || hasError(tokens)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
@@ -185,8 +186,14 @@ package classes {
 		//Output: Boolean 
 		//		  True if hasError.
 		//		  False if syntax is correct
-		//Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
+		//
+		//Notes: This function also checks for context errors such as states being defined twice
+		//		 or trying access a state that doesn't exist.  Because of this, errors must be 
+		//		 checked during processing instead of in ColorSyntax.
+		//	
+		//		 Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
 		//		 GenerateStepsArray when GoTo is processed.
+		
 		private static function hasError(tokens: Array): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
