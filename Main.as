@@ -65,7 +65,6 @@ package {
 	import classes.NewOperatorCHI;
 	import classes.WindowManager;
 	import classes.SettingsFileManager;
-	import classes.BranchingFunctionalityWrapper;
 	
 	public class Main extends MovieClip {
 
@@ -151,9 +150,6 @@ package {
 			settingsPanel.visible = false;
 			codeTxt.tabEnabled = false;
 			line.width = 710;
-			
-			//var wrapper = new BranchingFunctionalityWrapper();
-
 
 			//	- check for update -
 			//AppUpdater.updateCheck();
