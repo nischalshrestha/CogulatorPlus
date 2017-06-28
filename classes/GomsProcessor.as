@@ -103,7 +103,8 @@ package classes {
 			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
 			SyntaxColor.solarizeAll();
 
-
+			
+			
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				beginIndex = findBeginningIndex(codeLines, lineIndex);
@@ -112,22 +113,22 @@ package classes {
 				if (StringUtils.trim(line) != "") {
 					var frontTrimmedLine: String = trimIndents(codeLines[lineIndex]);
 					var tokens: Array = frontTrimmedLine.split(' ');
-					switch (tokens[0]) {
-						case "CreateState":
+					switch (tokens[0].toLowerCase()) {
+						case "createstate":
 							if (hasError(tokens)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								createState(tokens[1], tokens[2]);
 							}
 							break;
-						case "SetState":
+						case "setstate":
 							if (hasError(tokens)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
-								setState(tokens[1], tokens[2]);
+								setState(tokens);
 							}
 							break;
-						case "If":
+						case "if":
 							if (hasError(tokens)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
@@ -136,13 +137,13 @@ package classes {
 								lineIndex = nextIfLine(codeLines, lineIndex);
 							}
 							break;
-						case "EndIf":
+						case "endif":
 							if (hasError(tokens)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							}
 							//ignore EndIfs, but are useful in processing original statement.
 							break;
-						case "GoTo":
+						case "goto":
 							//Checks for infinite loops and syntax errors
 							//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
 							if (jumps > 25 || hasError(tokens)) {
@@ -199,7 +200,7 @@ package classes {
 			tokens = tokens.filter(noEmpty);
 
 
-			if (tokens[0] == "CreateState") {
+			if (tokens[0].toLowerCase() == "createstate") {
 				//CreateState name value extraStuff
 				//CreateState name
 				//Name already exists
@@ -207,24 +208,37 @@ package classes {
 					stateTable[tokens[1]] !== undefined
 				)
 					return true;
-			} else if (tokens[0] == "SetState") {
+			} else if (tokens[0].toLowerCase() == "setstate") {
+				if(!(tokens.length == 3 || tokens.length == 4)){
+					return true;
+				}
+				else if(stateTable[tokens[1]] == undefined){
+					return true;
+				}
+				else if(tokens.length == 4){
+					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
+					if(isNaN(tokens[3])){
+						trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
+						return true;
+					} else {
+						var prob = Number(tokens[3]);
+						if(!(0<= prob && prob <= 1)){
+							return true;
+						}
+					}
+				}
+			} else if (tokens[0].toLowerCase() == "if") {
 				if (tokens.length != 3 ||
 					stateTable[tokens[1]] == undefined
 				)
 					return true;
-
-			} else if (tokens[0] == "If") {
-				if (tokens.length != 3 ||
-					stateTable[tokens[1]] == undefined
-				)
-					return true;
-			} else if (tokens[0] == "EndIf") {
+			} else if (tokens[0].toLowerCase() == "endif") {
 				if (tokens.length != 1)
 					return true;
-			} else if (tokens[0] == "GoTo") {
+			} else if (tokens[0].toLowerCase() == "goto") {
 				if (tokens.length <= 2)
 					return true;
-				if (tokens.slice(0, 2).join(" ") != "GoTo Goal:")
+				if (tokens.slice(0, 2).join(" ").toLowerCase() != "goto goal:")
 					return true;
 				//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
 				/*				var goalName = tokens.slice(2,tokens.length).join(" ");
@@ -565,11 +579,29 @@ package classes {
 		}
 
 		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
-		//Input: String key, String value (target1, visited)
+		//Input: Array:String line		
+		//(Form) String key, String value (target1, visited)  OR
+		//		 String key, String value (target1, visited), String probability (between 0 and 1) 
+
 		//Output: none
 		//	SideEffect:  An existing entry in global stateTable is changed
-		private static function setState(key: String, value: String) {
-			stateTable[key] = value;
+		private static function setState(line: Array) {
+			if(line.length == 3){
+				//trace("Found straight case.\n")
+				stateTable[line[1]] = line[2];
+			} else { //should have 4 tokens, SetState state_name value probability (number between 0-1) 
+				var randomNumber:Number = Math.random();
+				var givenProbability:Number = Number(line[3]);
+				
+				if(randomNumber < givenProbability){
+					stateTable[line[1]] = line[2];
+					trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+				} else {
+					trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+				}
+			
+			}
+			
 		}
 
 
