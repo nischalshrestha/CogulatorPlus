@@ -87,8 +87,9 @@ package classes {
 			generateStepsArray();
 
 
-			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
 
+			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
+			
 			return (new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
 		}
 
@@ -336,7 +337,7 @@ package classes {
 				var thread: String = myKey;
 				if (thread != "base") thrdOrdr.push(thread);
 			}
-
+			
 		}
 
 
@@ -595,9 +596,9 @@ package classes {
 				
 				if(randomNumber < givenProbability){
 					stateTable[line[1]] = line[2];
-					trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+					//trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
 				} else {
-					trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+					//trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
 				}
 			
 			}

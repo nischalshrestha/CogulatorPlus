@@ -111,7 +111,7 @@ package classes {
 			grotesqueLrg.color = 0x62686A;
 			
 			initiate();
-		}
+			}
 		
 		private function initiate() {
 			try {
@@ -123,7 +123,6 @@ package classes {
 					allmthds = vars[4];
 					cntrlmthds = vars[5];
 				visualize(0);
-				
 				//save intersteps for export
 				$.exportIntersteps = intersteps;
 				

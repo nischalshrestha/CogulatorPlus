@@ -630,6 +630,12 @@ package {
 			}
 		}
 
+		function averageModelTImes(){
+			for(var i:int = 0; i<100; i++){
+			gantt = new GanttChart(ganttWindow, scl, drawNewTimeLine, timeLineLblsContainer);
+			trace("here: " + gantt.maxEndTime);
+			}
+		}
 
 		//		- Gantt Chart Management
 		function newGantt(drawNewTimeLine:Boolean):void {
@@ -639,7 +645,6 @@ package {
 				gantt = null;
 			}
 			gantt = new GanttChart(ganttWindow, scl, drawNewTimeLine, timeLineLblsContainer);
-			
 			ganttContainer.addChild(gantt);
 			$.gantt = gantt; //for use with the hints tool
 			
