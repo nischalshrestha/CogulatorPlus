@@ -615,8 +615,7 @@ package classes {
 		//		 Goal line assumed to be in the form "...Goal: goal_name"
 		private static function indexGoalLines(lines: Array): Dictionary {
 			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
-			var goalsInScope = new Dictionary();
-
+			
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = trimIndents(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
