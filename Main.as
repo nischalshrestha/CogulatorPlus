@@ -53,6 +53,7 @@ package {
 	import classes.FirstRun;
 	import classes.IndentComment;
 	import classes.HintsTool;
+	import classes.AverageTimeButton;
 	//import classes.AppSettings;
 	import classes.CustomScrollBar;
 	import classes.AppUpdater;
@@ -125,7 +126,6 @@ package {
 		//	  - track that all the necessary loading has taken place before building the GUI
 		var settingsLoaded = false;
 		var firstRunComplete = false;
-		
 
 		public function Main() {
 			$.stage = this.stage;
@@ -150,6 +150,9 @@ package {
 			settingsPanel.visible = false;
 			codeTxt.tabEnabled = false;
 			line.width = 710;
+
+			// Testing new button
+			averageTimeBtn.addEventListener(MouseEvent.CLICK, onAverageClick);
 
 			//	- check for update -
 			//AppUpdater.updateCheck();
@@ -220,7 +223,11 @@ package {
 			stage.nativeWindow.addEventListener(Event.CLOSING, closeApplication, false, 0, true);  
 		}
 		
-		
+		// Example handler for average time //todo Substitute average function once merged
+		function onAverageClick (evt:MouseEvent):void {
+			trace("AverageTimeButton clicked!");
+		}
+
 		//when the window size data has been loaded
 		function onSettingsFileReady(evt:Event):void{
 			settingsLoaded = true;
@@ -247,6 +254,7 @@ package {
 				
 				//  - handle stage resizing
 				stage.addEventListener(Event.RESIZE, onResizeStage);
+
 			}
 		}
 
@@ -261,9 +269,6 @@ package {
 			refreshModel();
 			hintsCHI.hintText.addEventListener
 		}
-		
-		
-
 		
 		//used by newOperatorCHI to regenerate the sidebar when a new operator is added
 		public function regenerateOperatorsSidebar():void {
@@ -459,7 +464,9 @@ package {
 			helpImages.background.width = stage.stageWidth;
 			helpImages.imageContainer.x = stage.stageWidth / 2 - helpImages.imageContainer.width / 2;
 			helpImages.imageContainer.y = stage.stageHeight / 2 - helpImages.imageContainer.height / 2;
+
 		}
+
 
 
 
