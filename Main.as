@@ -45,6 +45,7 @@ package {
 	import classes.OperatorsSidebar;
 	import classes.ModelsSidebar;
 	import classes.ModelStatus;
+	import classes.GomsProcessor;
 	import classes.GanttChart;
 	import classes.SyntaxColor;
 	import classes.TakePicture;
@@ -65,6 +66,7 @@ package {
 	import classes.NewOperatorCHI;
 	import classes.WindowManager;
 	import classes.SettingsFileManager;
+	import classes.Step;
 	
 	public class Main extends MovieClip {
 
@@ -485,6 +487,8 @@ package {
 		function respondToCustomKeyBoardCommands (evt:KeyboardEvent):void {
 			if (evt.ctrlKey) {
 				switch ( evt.keyCode ) {
+					case Keyboard.P :
+						averageModelTimes();
 					case Keyboard.S : //if control+s for save 
 						saveButton.gotoAndPlay(3);
 						modelsSideBar.saveModel();
@@ -631,10 +635,48 @@ package {
 		}
 		//Seems to make the app crash currently
 		function averageModelTimes(){
-			for( var i:int = 0; i < 100; i++) {
-				gantt = new GanttChart(ganttWindow, scl, false, timeLineLblsContainer);
-				gantt.maxEndTime;
+			var minTime:Number = Number.POSITIVE_INFINITY;
+			var maxTime:Number = Number.NEGATIVE_INFINITY;
+			var averageTime = 0;
+			var placeHolderSprite:Sprite = new Sprite();
+
+			
+			for( var i:int = 0; i < 10; i++) {
+				var vars:Array = GomsProcessor.processGOMS();
+				var curRunTime = 0;
+				var interSteps:Array = vars[3];
+				for(var j:int = 0; j<interSteps.length; j++){
+					var step:Step = interSteps[j];
+						if (step.endTime > curRunTime){
+							curRunTime = step.endTime;
+						}
+				}
+				//var curRunTime:Number = vars[3].;
+
+				//replace min if needed
+				if(curRunTime < minTime){
+					minTime = curRunTime;					
+				} 
+				
+				//replace max if needed
+				if(curRunTime > maxTime){
+					maxTime = curRunTime;
+				}
+				
+			
+				//keeps a running average
+				averageTime = ((averageTime*i) + curRunTime)/(i+1)
+				
+				
+				trace("Cur: " + curRunTime);
+				trace("Min: " + minTime);
+				trace("Max: " + maxTime);
+				trace("Ave: " + averageTime);
 			}
+				trace("FinalMin: " + minTime);
+				trace("FinalMax: " + maxTime);
+				trace("FinalAve: " + averageTime);
+			
 		}
 
 		//		- Gantt Chart Management
