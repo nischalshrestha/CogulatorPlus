@@ -629,14 +629,13 @@ package {
 				newModelCHI.modelField.tabIndex = 2;
 			}
 		}
-		/*
-		Seems to make the app crash currently
+		//Seems to make the app crash currently
 		function averageModelTimes(){
 			for( var i:int = 0; i < 100; i++) {
 				gantt = new GanttChart(ganttWindow, scl, false, timeLineLblsContainer);
-				trace("here: " + gantt.maxEndTime);
+				gantt.maxEndTime;
 			}
-		}*/
+		}
 
 		//		- Gantt Chart Management
 		function newGantt(drawNewTimeLine:Boolean):void {
