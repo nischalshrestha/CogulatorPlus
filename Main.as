@@ -129,6 +129,8 @@ package {
 		var settingsLoaded = false;
 		var firstRunComplete = false;
 
+		var calculationRunning = false;
+
 		public function Main() {
 			$.stage = this.stage;
 			$.codeTxt = codeTxt;
@@ -227,7 +229,9 @@ package {
 		
 		// Example handler for average time //todo Substitute average function once merged
 		function onAverageClick (evt:MouseEvent):void {
-			averageModelTimes();
+			if (!calculationRunning) {
+				averageModelTimes();
+			}
 		}
 
 		//when the window size data has been loaded
@@ -495,7 +499,9 @@ package {
 			if (evt.ctrlKey) {
 				switch ( evt.keyCode ) {
 					case Keyboard.P :
-						averageModelTimes();
+						if (!calculationRunning) {
+							averageModelTimes();
+						}
 					case Keyboard.S : //if control+s for save 
 						saveButton.gotoAndPlay(3);
 						modelsSideBar.saveModel();
