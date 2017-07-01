@@ -633,12 +633,19 @@ package {
 				newModelCHI.modelField.tabIndex = 2;
 			}
 		}
-		//Seems to make the app crash currently
+
+		
+		
+		//Purpose: Runs the model multiple times in order to get an average, 
+		//			min and max completion times. 
+		//Input: None
+		//Output: none (should output to GUI eventually)
+		//SideEffect:  Should be none.  Update if one is found	
+		//Note:only relevant if using probability in Cogulator plus
 		function averageModelTimes(){
 			var minTime:Number = Number.POSITIVE_INFINITY;
 			var maxTime:Number = Number.NEGATIVE_INFINITY;
 			var averageTime = 0;
-			var placeHolderSprite:Sprite = new Sprite();
 
 			
 			for( var i:int = 0; i < 10; i++) {
