@@ -103,34 +103,35 @@ package classes {
 
 			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
 			SyntaxColor.solarizeAll();
-
 			
 			
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				beginIndex = findBeginningIndex(codeLines, lineIndex);
 				endIndex = beginIndex + line.length;
-
+				goalIndex = indexGoalLines(codeLines);
 				if (StringUtils.trim(line) != "") {
 					var frontTrimmedLine: String = trimIndents(codeLines[lineIndex]);
 					var tokens: Array = frontTrimmedLine.split(' ');
-					switch (tokens[0].toLowerCase()) {
+					var operator = trimColon(tokens[0].toLowerCase());
+					tokens[0] = operator;
+					switch (operator) {
 						case "createstate":
-							if (hasError(tokens)) {
+							if (hasError(tokens, codeLines)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								createState(tokens[1], tokens[2]);
 							}
 							break;
 						case "setstate":
-							if (hasError(tokens)) {
+							if (hasError(tokens, codeLines)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								setState(tokens);
 							}
 							break;
 						case "if":
-							if (hasError(tokens)) {
+							if (hasError(tokens, codeLines)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								//should return int of next line to be processed based on the resolution
@@ -139,7 +140,7 @@ package classes {
 							}
 							break;
 						case "endif":
-							if (hasError(tokens)) {
+							if (hasError(tokens, codeLines)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							}
 							//ignore EndIfs, but are useful in processing original statement.
@@ -147,16 +148,17 @@ package classes {
 						case "goto":
 							//Checks for infinite loops and syntax errors
 							//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
-							if (jumps > 25 || hasError(tokens)) {
+							if (jumps > 1 || hasError(tokens, codeLines)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-								var goalName = frontTrimmedLine.substring(frontTrimmedLine.indexOf(':') + 2, frontTrimmedLine.length);
-								var goalTable: Dictionary = indexGoalLines(codeLines);
-								if(goalTable[goalName] !== undefined){
-									lineIndex = goalTable[goalName] - 1;
+								var goalTokens = frontTrimmedLine.split("Goal: ");
+								var goalName = goalTokens[1];
+								goalIndex = indexGoalLines(codeLines);
+								if(goalIndex[goalName] !== undefined){
+									lineIndex = goalIndex[goalName] - 1;
 									jumps++;
-								}else{
+								} else {
 									SyntaxColor.ErrorColorLine(lineIndex);
 								}
 							}
@@ -196,12 +198,13 @@ package classes {
 		//		 Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
 		//		 GenerateStepsArray when GoTo is processed.
 		
-		private static function hasError(tokens: Array): Boolean {
+		private static function hasError(tokens: Array, lines: Array): Boolean {
 			//Gets rid of empty tokens caused by whitespace
+
 			tokens = tokens.filter(noEmpty);
+			var operator = tokens[0].toLowerCase();
 
-
-			if (tokens[0].toLowerCase() == "createstate") {
+			if (operator == "createstate") {
 				//CreateState name value extraStuff
 				//CreateState name
 				//Name already exists
@@ -209,7 +212,7 @@ package classes {
 					stateTable[tokens[1]] !== undefined
 				)
 					return true;
-			} else if (tokens[0].toLowerCase() == "setstate") {
+			} else if (operator == "setstate") {
 				if(!(tokens.length == 3 || tokens.length == 4)){
 					return true;
 				}
@@ -228,24 +231,23 @@ package classes {
 						}
 					}
 				}
-			} else if (tokens[0].toLowerCase() == "if") {
+			} else if (operator == "if") {
 				if (tokens.length != 3 ||
 					stateTable[tokens[1]] == undefined
 				)
 					return true;
-			} else if (tokens[0].toLowerCase() == "endif") {
+			} else if (operator == "endif") {
 				if (tokens.length != 1)
 					return true;
-			} else if (tokens[0].toLowerCase() == "goto") {
+			} else if (operator == "goto") {
 				if (tokens.length <= 2)
 					return true;
 				if (tokens.slice(0, 2).join(" ").toLowerCase() != "goto goal:")
 					return true;
-				//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-				/*				var goalName = tokens.slice(2,tokens.length).join(" ");
-				var goalTable: Dictionary = indexGoalLines(codeLines);
-				if(goalTable[goalName] == undefined)
-					return true;*/
+				var goalLabel = tokens.slice(2, tokens.length).join(" ");
+				if(goalIndex[goalLabel] == undefined){
+					return true;
+				}
 			}
 
 			return false;
@@ -571,6 +573,23 @@ package classes {
 			return line;
 		}
 
+		//Purpose: removes a possible colon off the end of the operator
+		//to make it be optional for parsing
+		//Input: String: operator string
+		//	Example: "CreateState: goal_name value"
+		//Output: String: trimmed operator 
+		//	Example: "CreateState goal_name value"
+		private static function trimColon(operator: String): String {
+			var colon:int = operator.indexOf(':');
+			var goal: int = operator.indexOf("goal");
+			if (colon != -1 && goal < 0) {
+				return operator.substr(0, colon);
+			} else if (colon != -1 && goal != -1 && colon < goal) { // if we get a goto: goal: then cutoff goto's :
+				return operator.substr(0, colon);
+			}
+			return operator;
+		}
+
 		//Purpose: Creates new state in the stateTable, all values are represented as strings.
 		//Input: String key, String value (target1, visited)
 		//Output: none
@@ -615,11 +634,10 @@ package classes {
 		//		 Goal line assumed to be in the form "...Goal: goal_name"
 		private static function indexGoalLines(lines: Array): Dictionary {
 			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
-			
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = trimIndents(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "Goal:") {
+				if (tokens[0].toLowerCase() == "goal:") {
 					//Goal line assumed to be in the form "Goal: goal_name"
 					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
 					goalIndexesByName[goalName] = i;
