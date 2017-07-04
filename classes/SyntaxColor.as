@@ -54,6 +54,8 @@ package classes {
 		static var methods:Array = ["goal", "also", "as"];
 		static var branches:Array = ["if", "endif", "goto", "createstate", "setstate"];
 		static var errorInLine:Boolean = false;
+
+		static var typing:Boolean = false;
 		
 		black.color = SolarizedPalette.black;
 		cyan.color = SolarizedPalette.cyan;
@@ -82,6 +84,7 @@ package classes {
 		
 		public static function solarizeSelectedLine():Boolean {
 			trace("solarizeSelectedLine");
+			typing = true;
 			//get line number based on caret position
 			var lineNumber = WrappedLineUtils.getLineNumber($.codeTxt, $.codeTxt.caretIndex);
 				lineNumber--;
@@ -255,46 +258,41 @@ package classes {
 		}
 
 		private static function solarizeBranchLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
-
+			//trace("index "+index+", beginIndex "+beginIndex+", endIndex "+endIndex+", lineStartIndex "+lineStartIndex);
+			//for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
 			lineLabel = "";
 			time = "";
-			threadLabel = "base";
+			threadLabel = "";
 
 			// first color it magenta just like the methods
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
 			// then evaluate what the operator is error handle based on the type of operator
-			lineTxt = trimColon(lineTxt);
-			trace("tirmmed "+lineTxt);
-			index = findNextItem(endIndex, lineTxt);
-			endIndex = findNextItem(index, lineTxt);
+			index = findNextItem(endIndex, lineTxt); 
+			//trace("tirmmed "+trimmedLineTxt);
+			endIndex = (lineStartIndex + lineTxt.length);
 
-			trace("begindex "+beginIndex);
-			trace("endIndex "+lineTxt.substr(index, endIndex));
-
-			//trace("operator: "+operator);
-			//trace("next item: "+lineTxt.substr(index, lineTxt.length));
+			//trace("begindex "+index);
+			//trace("endIndex "+endIndex);
+			//trace("line end index: "+(lineStartIndex + lineTxt.length));
 
 			var tokens: Array = lineTxt.split(' ');
-			tokens[0] = operator;
 			switch (operator) {
 				case "createstate":
-					trace("case: "+tokens[1]);
 					if (hasError(tokens, lineNum)) {
 						ErrorColorLine(lineNum);
-					} else {
+					} else if (index < endIndex) {
 						createState(tokens[1], tokens[2]);
-						trace("created state for " + tokens[1] + " with value "+tokens[2]);
-						$.codeTxt.setTextFormat(black, beginIndex + index, beginIndex + index + endIndex + tokens[2].length);
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
 					break;
 				case "setstate":
 					trace("case: "+operator);
-					/*if (hasError(tokens)) {
+					if (hasError(tokens, lineNum)) {
 						SyntaxColor.ErrorColorLine(lineNum);
 					} else {
 						setState(tokens);
-						trace("new value for " + tokens[1] +": "+$.stateTable[tokens[1]]);
-					}*/
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+					}
 					break;
 				case "if":
 					trace("case: "+operator);
@@ -363,23 +361,17 @@ package classes {
 		
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			//Gets rid of empty tokens caused by whitespace
-
 			tokens = tokens.filter(noEmpty);
-			var operator = tokens[0].toLowerCase();
-
-			trace("tokens "+tokens.toString());
 
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
 				//CreateState name
 				//Name already exists
 				if (tokens.length != 3) {
-					trace("invalid arguments");
 					errorInLine = true;
-					$.errors[lineNum] = "Incorrect number of arguments."
+					$.errors[lineNum] = "I was expecting 3 arguments."
 					return true;
-				} else if ($.stateTable[tokens[1]] !== undefined) {
-					trace("already exists");
+				} else if ($.stateTable[tokens[1]] !== undefined && !typing) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
 					return true;
@@ -387,7 +379,7 @@ package classes {
 			} else if (operator == "setstate") {
 				if(!(tokens.length == 3 || tokens.length == 4)){
 					errorInLine = true;
-					$.errors[lineNum] = "Incorrect number of arguments."
+					$.errors[lineNum] = "I was expecting 3 or 4 arguments."
 					return true;
 				} else if($.stateTable[tokens[1]] == undefined){
 					errorInLine = true;
@@ -396,9 +388,9 @@ package classes {
 				} else if(tokens.length == 4){
 					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
 					if(isNaN(tokens[3])){
-						trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
+						//trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
 						errorInLine = true;
-						$.errors[lineNum] = "Probability is not a number."
+						$.errors[lineNum] = "3rd argument should be a number between 0 and 1, but I got '"+tokens[3]+"'"
 						return true;
 					} else {
 						var prob = Number(tokens[3]);
@@ -412,7 +404,7 @@ package classes {
 			} else if (operator == "if") {
 				if (tokens.length != 3) {
 					errorInLine = true;
-					$.errors[lineNum] = "Incorrect number of arguments."
+					$.errors[lineNum] = "I was expecting 3 arguments."
 				} else if ($.stateTable[tokens[1]] == undefined){
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
@@ -421,13 +413,13 @@ package classes {
 			} else if (operator == "endif") {
 				if (tokens.length != 1) {
 					errorInLine = true;
-					$.errors[lineNum] = "Incorrect number of arguments."
+					$.errors[lineNum] = "I was expecting 1 argument."
 					return true;
 				}
 			} else if (operator == "goto") {
 				if (tokens.length <= 2) {
 					errorInLine = true;
-					$.errors[lineNum] = "Incorrect number of arguments."
+					$.errors[lineNum] = "I was expecting 2 arguments."
 					return true;
 				}
 				if (tokens.slice(0, 2).join(" ").toLowerCase() != "goto goal:")

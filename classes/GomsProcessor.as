@@ -85,6 +85,8 @@ package classes {
 
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
 			for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
+
+			SyntaxColor.typing = false;
 			//trace("state table ")
 			generateStepsArray();
 
@@ -226,85 +228,7 @@ package classes {
 
 		}
 
-		
-		//Filter Method to get rid of empty strings in token array.  Taken from example
-		//http://board.flashkit.com/board/showthread.php?805338-Remove-empty-elements-in-an-arry
-		private static function noEmpty(item: * , index: int, array: Array): Boolean {
-			return item != "";
-		}
-		
-		
-		//Purpose:  To determine if there is a syntax error in added operators
-		//Input: front trimmed line tokenized using space as dilimiter. 
-		//		 Operator should always be first token
-		//       Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
-		//		 Example:  GoTo,Goal:,hands,and,feet
-		//Output: Boolean 
-		//		  True if hasError.
-		//		  False if syntax is correct
-		//
-		//Notes: This function also checks for context errors such as states being defined twice
-		//		 or trying access a state that doesn't exist.  Because of this, errors must be 
-		//		 checked during processing instead of in ColorSyntax.
-		//	
-		//		 Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
-		//		 GenerateStepsArray when GoTo is processed.
-		
-		private static function hasError(tokens: Array, lines: Array): Boolean {
-			//Gets rid of empty tokens caused by whitespace
-
-			tokens = tokens.filter(noEmpty);
-			var operator = tokens[0].toLowerCase();
-
-			if (operator == "createstate") {
-				//CreateState name value extraStuff
-				//CreateState name
-				//Name already exists
-				if (tokens.length != 3 ||
-					stateTable[tokens[1]] !== undefined
-				)
-					return true;
-			} else if (operator == "setstate") {
-				if(!(tokens.length == 3 || tokens.length == 4)){
-					return true;
-				}
-				else if(stateTable[tokens[1]] == undefined){
-					return true;
-				}
-				else if(tokens.length == 4){
-					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
-					if(isNaN(tokens[3])){
-						trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
-						return true;
-					} else {
-						var prob = Number(tokens[3]);
-						if(!(0<= prob && prob <= 1)){
-							return true;
-						}
-					}
-				}
-			} else if (operator == "if") {
-				if (tokens.length != 3 ||
-					stateTable[tokens[1]] == undefined
-				)
-					return true;
-			} else if (operator == "endif") {
-				if (tokens.length != 1)
-					return true;
-			} else if (operator == "goto") {
-				if (tokens.length <= 2)
-					return true;
-				if (tokens.slice(0, 2).join(" ").toLowerCase() != "goto goal:")
-					return true;
-				var goalLabel = tokens.slice(2, tokens.length).join(" ");
-				if(goalIndex[goalLabel] == undefined){
-					return true;
-				}
-			}
-
-			return false;
-		}
-
+		// ** This might not be needed after refactor as Syntax Color will have ways to do this **
 		//Purpose:  Find the "beginIndex" used in process steps array. should be the sum 
 		//			of the length of all lines that came before. Necessary for line jumping
 		// 			for if's and goTos.
@@ -319,6 +243,7 @@ package classes {
 			return beginIndex;
 		}
 
+	    // TODO: Eventually remove this
 		//Purpose: Creates the stepArray to be processed.
 		//Input: Array syntaxArray: created from solarizeLine().
 		//		 int: lineIndex (current line being processed)
@@ -626,57 +551,6 @@ package classes {
 			return line;
 		}
 
-		//Purpose: removes a possible colon off the end of the operator
-		//to make it be optional for parsing
-		//Input: String: operator string
-		//	Example: "CreateState: goal_name value"
-		//Output: String: trimmed operator 
-		//	Example: "CreateState goal_name value"
-		private static function trimColon(operator: String): String {
-			var colon:int = operator.indexOf(':');
-			var goal: int = operator.indexOf("goal");
-			if (colon != -1 && goal < 0) {
-				return operator.substr(0, colon);
-			} else if (colon != -1 && goal != -1 && colon < goal) { // if we get a goto: goal: then cutoff goto's :
-				return operator.substr(0, colon);
-			}
-			return operator;
-		}
-
-		//Purpose: Creates new state in the stateTable, all values are represented as strings.
-		//Input: String key, String value (target1, visited)
-		//Output: none
-		//	SideEffect:  An new entry in global stateTable is added
-		private static function createState(key: String, value: String) {
-			stateTable[key] = value;
-		}
-
-		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
-		//Input: Array:String line		
-		//(Form) String key, String value (target1, visited)  OR
-		//		 String key, String value (target1, visited), String probability (between 0 and 1) 
-
-		//Output: none
-		//	SideEffect:  An existing entry in global stateTable is changed
-		private static function setState(line: Array) {
-			if(line.length == 3){
-				//trace("Found straight case.\n")
-				stateTable[line[1]] = line[2];
-			} else { //should have 4 tokens, SetState state_name value probability (number between 0-1) 
-				var randomNumber:Number = Math.random();
-				var givenProbability:Number = Number(line[3]);
-				
-				if(randomNumber < givenProbability){
-					stateTable[line[1]] = line[2];
-					//trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
-				} else {
-					//trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
-				}
-			
-			}
-		}
-
-
 		//Purpose: finds the lineNumbers of all goals in the program
 		//Input: None
 		//Output: Dictionary of goals and lines in the form: 
@@ -697,8 +571,6 @@ package classes {
 			}
 			return goalIndexesByName;
 		}
-
-
 
 		
 		//Purpose: Finds next value of lineCounter. 
