@@ -259,10 +259,9 @@ package classes {
 
 		private static function solarizeBranchLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
 			//trace("index "+index+", beginIndex "+beginIndex+", endIndex "+endIndex+", lineStartIndex "+lineStartIndex);
-			//for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
 			lineLabel = "";
 			time = "";
-			threadLabel = "";
+			threadLabel = "base";
 
 			// first color it magenta just like the methods
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
@@ -279,7 +278,7 @@ package classes {
 			switch (operator) {
 				case "createstate":
 					if (hasError(tokens, lineNum)) {
-						ErrorColorLine(lineNum);
+						$.codeTxt.setTextFormat(errorred, beginIndex + index, endIndex);
 					} else if (index < endIndex) {
 						createState(tokens[1], tokens[2]);
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
@@ -288,7 +287,7 @@ package classes {
 				case "setstate":
 					trace("case: "+operator);
 					if (hasError(tokens, lineNum)) {
-						SyntaxColor.ErrorColorLine(lineNum);
+						$.codeTxt.setTextFormat(errorred, beginIndex + index, endIndex);
 					} else {
 						setState(tokens);
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
@@ -296,21 +295,24 @@ package classes {
 					break;
 				case "if":
 					trace("case: "+operator);
-				/*
-					if (hasError(tokens, codeLines)) {
-						SyntaxColor.ErrorColorLine(lineIndex);
+					if (hasError(tokens, lineNum)) {
+						//ErrorColorLine(lineNum);
+						$.codeTxt.setTextFormat(errorred, beginIndex + index, endIndex);
 					} else {
 						//should return int of next line to be processed based on the resolution
 						//of the if statement.
-						lineIndex = nextIfLine(codeLines, lineIndex);
-					}*/
+						var lineIndex = nextIfLine(lineNum);
+						trace("lineIndex "+lineIndex);
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+					}
 					break;
 				case "endif":
 					trace("case: "+operator);
-				/*
-					if (hasError(tokens, codeLines)) {
-						SyntaxColor.ErrorColorLine(lineIndex);
-					}*/
+					if (hasError(tokens, lineNum)) {
+						$.codeTxt.setTextFormat(errorred, lineStartIndex, endIndex);
+					} else {
+						$.codeTxt.setTextFormat(magenta, beginIndex + index, endIndex);
+					}
 					//ignore EndIfs, but are useful in processing original statement.
 					break;
 				case "goto":
@@ -405,6 +407,7 @@ package classes {
 				if (tokens.length != 3) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 3 arguments."
+					return true;
 				} else if ($.stateTable[tokens[1]] == undefined){
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
@@ -413,7 +416,7 @@ package classes {
 			} else if (operator == "endif") {
 				if (tokens.length != 1) {
 					errorInLine = true;
-					$.errors[lineNum] = "I was expecting 1 argument."
+					$.errors[lineNum] = "I was not expecting any arguments."
 					return true;
 				}
 			} else if (operator == "goto") {
@@ -429,8 +432,8 @@ package classes {
 					return true;
 				}*/
 			}
-			trace("no erors");
-			if ($.errors[lineNum] !== undefined) delete $.errors[lineNum];
+			trace("no errors");
+			//if ($.errors[lineNum] !== undefined) delete $.errors[lineNum];
 			errorInLine = false;
 			return false;
 		}
@@ -467,21 +470,21 @@ package classes {
 				}
 			}
 		}
-
-		/*
+		
 		//Purpose: Finds next value of lineCounter. 
 		//Input: Int lineCounter: lineNumber of Current If-statement
 		//Output: int: the lineNumber of the next statement to be processed
 		//	ifTrue: lineCounter - continue processing where you are.
 		//	ifFalse: the line of the matching EndIf;
-		private static function nextIfLine(lines: Array, lineCounter: int): int {
-			var ifIsTrue: Boolean = evaluateIfStatement(trimIndents(lines[lineCounter]));
+		private static function nextIfLine(lineCounter: int): int {
+			var codeLines: Array = $.codeTxt.text.split("\r");
+			var ifIsTrue: Boolean = evaluateIfStatement(trimIndents(codeLines[lineCounter]));
 			if (ifIsTrue) {
 				//do not jump any lines, lineCounter in parseloop will iterate to next line
 				return lineCounter;
 			} else {
 				//Jump to the end of the ifStatement
-				return findMatchingEndIf(lines, lineCounter);
+				return findMatchingEndIf(codeLines, lineCounter);
 			}
 		}
 
@@ -501,11 +504,13 @@ package classes {
 				SyntaxColor.solarizeLine(i);
 				var frontTrimmedLine: String = trimIndents(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "If") { //Handles nested ifs
+				trace("tokens in findMatchingEndIf "+tokens.toString());
+				if (tokens[0] == "if") { //Handles nested ifs
 					numIfs++; //for each if found, it must find an additional endif
-				} else if (tokens[0] == "EndIf") {
+				} else if (tokens[0] == "endif") {
 					numEndIfs++;
 					if (numEndIfs == numIfs) {
+						trace("matched endif");
 						return i;
 					}
 				}
@@ -526,7 +531,7 @@ package classes {
 			var tableValueString = $.stateTable[key];
 
 			return (tableValueString == ifValue);
-		}*/
+		}
 
 		private static function solarizeGoalLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
@@ -678,6 +683,18 @@ package classes {
 			
 		private static function trim(s:String):String {
 			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
+		}
+
+		//Purpose: removes spaces and periods from front of line so that we can identify the operator
+		//Input: String: raw line 
+		//	Example: "...CreateState goal_name value"
+		//Output: String: trimmed line 
+		//	Example: "CreateState goal_name value"
+		private static function trimIndents(line: String): String {
+			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
+				line = line.substr(1);
+			}
+			return line;
 		}
 		
 		private static function countIdents(lineTxt:String):int {
