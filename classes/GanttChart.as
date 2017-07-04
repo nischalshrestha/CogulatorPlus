@@ -123,6 +123,7 @@ package classes {
 					allmthds = vars[4];
 					cntrlmthds = vars[5];
 				visualize(0);
+				trace("visualized");
 				//save intersteps for export
 				$.exportIntersteps = intersteps;
 				

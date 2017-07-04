@@ -84,12 +84,18 @@ package classes {
 
 
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
+			for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
+			//trace("state table ")
 			generateStepsArray();
 
+			trace("generateStepsArray done");
 
 
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
+
+			//trace("processStepsArray done");
 			
+
 			return (new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
 		}
 
@@ -102,15 +108,58 @@ package classes {
 			var jumps:int = 0;
 
 			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
-			SyntaxColor.solarizeAll();
+			//SyntaxColor.solarizeAll();
 			
 			
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
-				beginIndex = findBeginningIndex(codeLines, lineIndex);
+				//beginIndex = findBeginningIndex(codeLines, lineIndex);
 				endIndex = beginIndex + line.length;
 				goalIndex = indexGoalLines(codeLines);
 				if (StringUtils.trim(line) != "") {
+					var syntaxArray:Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
+
+					var indentCount: int = syntaxArray[0];
+					var stepOperator: String = syntaxArray[1];
+					var stepLabel: String = trimLabel(syntaxArray[2]);
+					var stepTime: String = syntaxArray[3];
+					var chunkNames: Array = syntaxArray[7];
+
+					/*
+					trace("indentCount: "+indentCount);
+					trace("stepOperator: "+stepOperator);
+					trace("stepLabel: "+stepLabel);
+					trace("stepTime: "+stepTime);
+					trace("chunkNames: "+chunkNames.toString());*/
+
+
+					var methodGoal, methodThread:String;
+					if (stepOperator != "goal" && stepOperator != "also") {
+						var goalAndThread:Array = findGoalAndThread(indentCount); //determine the operator and thread
+						methodGoal = goalAndThread[0];
+						methodThread = goalAndThread[1];
+						//trace("not a goal or alos operator "+stepOperator);
+					} else {
+						methodGoal = stepLabel;
+						if (syntaxArray[4] == "!X!X!") {
+							methodThread = String(newThreadNumber);
+							newThreadNumber++;
+						} else {
+							methodThread = syntaxArray[4];
+						}
+	
+						allmthds.push(stepLabel); //for charting in GanttChart
+						if (indentCount == 1) cntrlmthds.push(stepLabel);  //for charting in GanttChart
+					}
+										
+					if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
+						//trace("no errors");
+						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);				
+						//trace("pushing step");
+						steps.push(s); 
+					}
+
+					/*
 					var frontTrimmedLine: String = trimIndents(codeLines[lineIndex]);
 					var tokens: Array = frontTrimmedLine.split(' ');
 					var operator = trimColon(tokens[0].toLowerCase());
@@ -167,10 +216,13 @@ package classes {
 							var syntaxArray: Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
 							processBaseCogulatorLine(syntaxArray, lineIndex);
 					}
+					*/
 				}
+				beginIndex = endIndex + 1;
 			}
 			removeGoalSteps();
 			setPrevLineNo();
+			//trace("finish generateStepsArray");
 
 		}
 
@@ -346,7 +398,6 @@ package classes {
 		private static function interleaveStep(thread: String, goal: String) {
 			for (var i: int = 0; i < steps.length; i++) {
 				var step: Step = steps[i];
-
 				if (thread == "base") {
 					if (step.thred == "base") {
 						var t: Array = findStartEndTime(step);
@@ -409,6 +460,8 @@ package classes {
 			var reslt: Array = new Array();
 			reslt[0] = startTime;
 			reslt[1] = endTime;
+
+			//trace("finding end time");
 
 			return reslt;
 		}
@@ -621,7 +674,6 @@ package classes {
 				}
 			
 			}
-			
 		}
 
 
