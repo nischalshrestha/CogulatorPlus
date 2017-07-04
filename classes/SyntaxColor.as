@@ -369,7 +369,7 @@ package classes {
 				//Name already exists
 				if (tokens.length != 3) {
 					errorInLine = true;
-					$.errors[lineNum] = "I was expecting 3 arguments."
+					$.errors[lineNum] = "I was expecting 2 arguments."
 					return true;
 				} else if ($.stateTable[tokens[1]] !== undefined && !typing) {
 					errorInLine = true;
@@ -379,7 +379,7 @@ package classes {
 			} else if (operator == "setstate") {
 				if(!(tokens.length == 3 || tokens.length == 4)){
 					errorInLine = true;
-					$.errors[lineNum] = "I was expecting 3 or 4 arguments."
+					$.errors[lineNum] = "I was expecting 2 or 3 arguments."
 					return true;
 				} else if($.stateTable[tokens[1]] == undefined){
 					errorInLine = true;
