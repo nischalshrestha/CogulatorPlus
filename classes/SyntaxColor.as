@@ -443,6 +443,10 @@ package classes {
 			return false;
 		}
 
+		//Purpose: Recursively finds the closest endif to close the if
+		//Input: int ifLine (index of the if line), int endIfLine (index of the endif line if known), counter (keep track of position)
+		//Output: True if it found an endif, presumably the closest one.
+		//SideEffect:  None
 		private static function missingEndif(ifLine:int, endIfLine:int = -1, counter:int = -1):Boolean {
 			if (counter == -1) 
 				counter = WrappedLineUtils.getNumLines($.codeTxt) - 1;
