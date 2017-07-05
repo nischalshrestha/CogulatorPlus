@@ -77,6 +77,7 @@ package classes {
 			var seeArray: Array = new Array(to);
 			var cognitiveArray: Array = new Array(to);
 			var handsArray: Array = new Array(to);
+			var branchArray: Array = new Array(to);
 			resourceAvailability["verbalcoms"] = verbalcomsArray;
 			resourceAvailability["see"] = seeArray;
 			resourceAvailability["cognitive"] = cognitiveArray;
@@ -95,7 +96,7 @@ package classes {
 
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
 
-			//trace("processStepsArray done");
+			trace("processStepsArray done");
 			
 
 			return (new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
@@ -127,7 +128,7 @@ package classes {
 					var stepTime: String = syntaxArray[3];
 					var chunkNames: Array = syntaxArray[7];
 
-					/*
+					/* 
 					trace("indentCount: "+indentCount);
 					trace("stepOperator: "+stepOperator);
 					trace("stepLabel: "+stepLabel);
@@ -155,9 +156,9 @@ package classes {
 					}
 										
 					if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
-						//trace("no errors");
 						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);				
 						//trace("pushing step");
+						//trace("step operator: "+stepOperator);
 						steps.push(s); 
 					}
 
@@ -223,6 +224,7 @@ package classes {
 				beginIndex = endIndex + 1;
 			}
 			removeGoalSteps();
+			//removeBranchSteps();
 			setPrevLineNo();
 			//trace("finish generateStepsArray");
 
@@ -285,8 +287,54 @@ package classes {
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				if (steps[i].operator == "goal" || steps[i].operator == "also") steps.splice(i, 1);
 			}
+			trace("steps left in array "+steps.length);
 		}
 
+
+		// IN PROGRESS
+		private static function removeBranchSteps() {
+			var unevaluatedSteps:Array = new Array();
+			var removedCount:int = 0
+			var endifIndex:int = 0;
+			//steps.clear();
+			for (var i: int = steps.length - 1; i > -1; i--) {
+				trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
+				if (SyntaxColor.branches.indexOf(steps[i].operator) != -1) {
+					if (unevaluatedSteps.indexOf(steps[i].lineNo) != -1) {
+						steps.splice(i, 1);
+						removedCount++;
+					} else if (steps[i].operator == "if") {
+						// if you have an If, make sure to delete steps within if false
+						var ifLine = steps[i].lineNo;
+						trace("ifLine "+ifLine)
+						var lines: Array = $.codeTxt.text.split("\r");
+						trace("trimmed ifline "+trimIndents(lines[steps[i].lineNo]));
+						if (!evaluateIfStatement(trimIndents(lines[steps[i].lineNo]))) {
+							trace("false");
+							var endIfIndex = findFirstEndIf(steps[i].lineNo);
+							for (var j = endIfIndex; j > ifLine; j--) {
+								if (unevaluatedSteps.indexOf(j) == -1){
+									unevaluatedSteps.push(j);
+									trace("pushing step to remove "+j);
+								}
+							}
+						}
+						steps.splice(i, 1);
+						removedCount++;
+						trace(" final i "+i);
+					} else if (steps[i].operator != "endif") {
+						steps.splice(i, 1);
+						removedCount++;
+					}
+					//trace("branch operator to remove "+steps[i].operator);
+				}
+				// else {
+					//trace("branch operator to remove else "+steps[i].operator);
+				//}
+				
+			}
+			trace("steps left in array "+steps.length);
+		}
 
 		private static function setPrevLineNo() {
 			//steps[0] is set to 0 by default, all others should be updated
@@ -302,13 +350,14 @@ package classes {
 				var step: Step = steps[0]; //look at the first step in the steps arraylist
 				threadTracker[step.thred] = step.goal;
 
+
 				//iterate through each thread in the tracker, and place one step from each active thread/goal
 				for (var myKy: String in threadTracker) {
 					var goal: String = threadTracker[myKy];
 					var thred: String = myKy;
+					trace("step and thread "+step.operator + ", "+step.thred);
 					interleaveStep(thred, goal);
 				}
-
 			} while (steps.length > 0);
 
 			thrdOrdr.push("base");
@@ -348,6 +397,7 @@ package classes {
 
 
 		private static function findStartEndTime(step: Step): Array {
+
 			var resource: String = step.resource;
 			var thread: String = step.thred;
 			var method: String = step.goal
@@ -362,7 +412,6 @@ package classes {
 			var methodTime: Number = 0;
 
 			if (resource == "speech" || step.resource == "hear") resource = "verbalcoms";
-
 			if (threadAvailability[thread] == null) {
 				var prevLineNumberTime = getPreviousLineTime(step.prevLineNo);
 				zerodTO.et = prevLineNumberTime;
@@ -376,17 +425,20 @@ package classes {
 			var startTime: Number = threadTime;
 			var endTime: Number = startTime + stepTime + cycleTime;
 
+			trace("found end time for "+step.operator);
+
 			startTime = getResourceAvailability(resource, startTime, endTime, stepTime);
+
+
 			endTime = startTime + stepTime + cycleTime;
 
 			//store the results for the next go round
 			threadAvailability[thread] = new TimeObject(startTime, endTime);
 
+
 			var reslt: Array = new Array();
 			reslt[0] = startTime;
 			reslt[1] = endTime;
-
-			//trace("finding end time");
 
 			return reslt;
 		}
@@ -407,6 +459,7 @@ package classes {
 		private static function getResourceAvailability(resource: String, startTime: Number, endTime: Number, stepTime: Number): Number {
 			//pull the resource array of TimeObjects associated with the resource
 			var resourceArray: Array = resourceAvailability[resource]; //time the resource becomes available
+			trace("getting resource "+resourceArray);
 			for (var i: int = 0; i < resourceArray.length - 1; i++) {
 				if (resourceArray[i].et < resourceArray[i + 1].st) { //this means there's a gap - it's worth digging further
 					if (startTime >= resourceArray[i].et) { //if the resource availability occurs after the earliest possible start time, it's worth digging further
@@ -524,6 +577,7 @@ package classes {
 					return op.resource.toLowerCase();
 				}
 			}
+			trace("no match resource for "+operator);
 			return "no match"; //could not find a match
 		}
 
@@ -578,7 +632,8 @@ package classes {
 		//Output: int: the lineNumber of the next statement to be processed
 		//	ifTrue: lineCounter - continue processing where you are.
 		//	ifFalse: the line of the matching EndIf;
-		private static function nextIfLine(lines: Array, lineCounter: int): int {
+		private static function nextIfLine(lineCounter: int): int {
+			var lines: Array = $.codeTxt.text.split("\r");
 			var ifIsTrue: Boolean = evaluateIfStatement(trimIndents(lines[lineCounter]));
 			if (ifIsTrue) {
 				//do not jump any lines, lineCounter in parseloop will iterate to next line
@@ -600,17 +655,32 @@ package classes {
 		private static function findMatchingEndIf(lines: Array, lineCounter: int): int {
 			var numIfs: int = 1;
 			var numEndIfs: int = 0;
-			for (var i = lineCounter + 1; i < lines.length; i++) {
-				SyntaxColor.solarizeLine(i);
+			for (var i = lineCounter; i < lines.length; i++) {
+				//SyntaxColor.solarizeLine(i);
 				var frontTrimmedLine: String = trimIndents(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "If") { //Handles nested ifs
+				if (tokens[0] == "if") { //Handles nested ifs
 					numIfs++; //for each if found, it must find an additional endif
-				} else if (tokens[0] == "EndIf") {
+				} else if (tokens[0] == "endif") {
 					numEndIfs++;
 					if (numEndIfs == numIfs) {
+						trace("match endif line "+i);
 						return i;
 					}
+				}
+			}
+			return lines.length;
+		}
+
+		private static function findFirstEndIf(lineCounter: int): int {
+			var lines: Array = $.codeTxt.text.split("\r");
+			for (var i = lineCounter; i < lines.length; i++) {
+				//SyntaxColor.solarizeLine(i);
+				var frontTrimmedLine: String = trimIndents(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				if (tokens[0] == "endif") {
+					trace("match endif line "+i);
+					return i;
 				}
 			}
 			return lines.length;
@@ -627,9 +697,9 @@ package classes {
 			//input must be in the form "If key value"
 			var key: String = ifLine.split(' ')[1];
 			var ifValue: String = ifLine.split(' ')[2];
-			var tableValueString = stateTable[key];
-
-			return (tableValueString == ifValue);
+			var tableValueString = $.stateTable[key];
+			trace("comparing "+tableValueString+" vs "+ifValue);
+			return (tableValueString === ifValue);
 		}
 		
 	}
