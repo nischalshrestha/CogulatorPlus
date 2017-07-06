@@ -52,9 +52,6 @@ package classes {
 		private static var cycleTime: Number;
 
 
-		private static var stateTable: Dictionary = new Dictionary();
-
-
 		public static function processGOMS(): Array {
 			maxEndTime = 0;
 			cycleTime = 0; //ms. 50 ms Based on production rule cycle time.  Bovair & Kieras/Card, Moran & Newell
@@ -107,7 +104,6 @@ package classes {
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
 			var endIndex: int = codeLines[0].length;
-			stateTable = new Dictionary();
 			var jumps:int = 0;
 
 			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
@@ -116,7 +112,6 @@ package classes {
 			
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
-				//beginIndex = findBeginningIndex(codeLines, lineIndex);
 				endIndex = beginIndex + line.length;
 				goalIndex = indexGoalLines(codeLines);
 				if (StringUtils.trim(line) != "") {
@@ -134,7 +129,6 @@ package classes {
 					trace("stepLabel: "+stepLabel);
 					trace("stepTime: "+stepTime);
 					trace("chunkNames: "+chunkNames.toString());*/
-
 
 					var methodGoal, methodThread:String;
 					if (stepOperator != "goal" && stepOperator != "also") {
@@ -161,127 +155,15 @@ package classes {
 						//trace("step operator: "+stepOperator);
 						steps.push(s); 
 					}
-
-					/*
-					var frontTrimmedLine: String = trimIndents(codeLines[lineIndex]);
-					var tokens: Array = frontTrimmedLine.split(' ');
-					var operator = trimColon(tokens[0].toLowerCase());
-					tokens[0] = operator;
-					switch (operator) {
-						case "createstate":
-							if (hasError(tokens, codeLines)) {
-								SyntaxColor.ErrorColorLine(lineIndex);
-							} else {
-								createState(tokens[1], tokens[2]);
-							}
-							break;
-						case "setstate":
-							if (hasError(tokens, codeLines)) {
-								SyntaxColor.ErrorColorLine(lineIndex);
-							} else {
-								setState(tokens);
-							}
-							break;
-						case "if":
-							if (hasError(tokens, codeLines)) {
-								SyntaxColor.ErrorColorLine(lineIndex);
-							} else {
-								//should return int of next line to be processed based on the resolution
-								//of the if statement.
-								lineIndex = nextIfLine(codeLines, lineIndex);
-							}
-							break;
-						case "endif":
-							if (hasError(tokens, codeLines)) {
-								SyntaxColor.ErrorColorLine(lineIndex);
-							}
-							//ignore EndIfs, but are useful in processing original statement.
-							break;
-						case "goto":
-							//Checks for infinite loops and syntax errors
-							//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
-							if (jumps > 1 || hasError(tokens, codeLines)) {
-								SyntaxColor.ErrorColorLine(lineIndex);
-							} else {
-								//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-								var goalTokens = frontTrimmedLine.split("Goal: ");
-								var goalName = goalTokens[1];
-								goalIndex = indexGoalLines(codeLines);
-								if(goalIndex[goalName] !== undefined){
-									lineIndex = goalIndex[goalName] - 1;
-									jumps++;
-								} else {
-									SyntaxColor.ErrorColorLine(lineIndex);
-								}
-							}
-							break;
-						default:
-							var syntaxArray: Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
-							processBaseCogulatorLine(syntaxArray, lineIndex);
-					}
-					*/
 				}
 				beginIndex = endIndex + 1;
 			}
 			removeGoalSteps();
-			//removeBranchSteps();
+			removeBranchSteps();
 			setPrevLineNo();
 			//trace("finish generateStepsArray");
 
 		}
-
-		// ** This might not be needed after refactor as Syntax Color will have ways to do this **
-		//Purpose:  Find the "beginIndex" used in process steps array. should be the sum 
-		//			of the length of all lines that came before. Necessary for line jumping
-		// 			for if's and goTos.
-		//
-		//Input: Array lines: all lines in the editor (codeLines from generateStepArray).
-		//Output: int beginIndex: the correct index to feed solarize function
-		private static function findBeginningIndex(lines: Array, lineNumber): int {
-			var beginIndex: int = 0;
-			for (var i: int = 0; i < lineNumber; i++) {
-				beginIndex += lines[i].length + 1; //Plus new line character
-			}
-			return beginIndex;
-		}
-
-	    // TODO: Eventually remove this
-		//Purpose: Creates the stepArray to be processed.
-		//Input: Array syntaxArray: created from solarizeLine().
-		//		 int: lineIndex (current line being processed)
-		//Output: none
-		//Notes: created for Cog+ functionality.  Code was extracted from processStepArray.
-		private static function processBaseCogulatorLine(syntaxArray: Array, lineIndex: int) {
-			var indentCount: int = syntaxArray[0];
-			var stepOperator: String = syntaxArray[1];
-			var stepLabel: String = trimLabel(syntaxArray[2]);
-			var stepTime: String = syntaxArray[3];
-			var chunkNames: Array = syntaxArray[7];
-
-			var methodGoal, methodThread: String;
-			if (stepOperator != "goal" && stepOperator != "also") {
-				var goalAndThread: Array = findGoalAndThread(indentCount); //determine the operator and thread
-				methodGoal = goalAndThread[0];
-				methodThread = goalAndThread[1];
-			} else {
-				methodGoal = stepLabel;
-				if (syntaxArray[4] == "!X!X!") {
-					methodThread = String(newThreadNumber);
-					newThreadNumber++;
-				} else {
-					methodThread = syntaxArray[4];
-				}
-
-				allmthds.push(stepLabel); //for charting in GanttChart
-				if (indentCount == 1) cntrlmthds.push(stepLabel); //for charting in GanttChart
-			}
-
-			if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
-				var s: Step = new Step(indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
-				steps.push(s);
-			}
-		}
-
 
 		private static function removeGoalSteps() {
 			for (var i: int = steps.length - 1; i > -1; i--) {
@@ -290,50 +172,44 @@ package classes {
 			trace("steps left in array "+steps.length);
 		}
 
-
 		// IN PROGRESS
 		private static function removeBranchSteps() {
-			var unevaluatedSteps:Array = new Array();
-			var removedCount:int = 0
+			var unevaluatedLines:Array = getUnevaluatedSteps();
 			var endifIndex:int = 0;
 			//steps.clear();
 			for (var i: int = steps.length - 1; i > -1; i--) {
-				trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
-				if (SyntaxColor.branches.indexOf(steps[i].operator) != -1) {
-					if (unevaluatedSteps.indexOf(steps[i].lineNo) != -1) {
-						steps.splice(i, 1);
-						removedCount++;
-					} else if (steps[i].operator == "if") {
-						// if you have an If, make sure to delete steps within if false
-						var ifLine = steps[i].lineNo;
-						trace("ifLine "+ifLine)
-						var lines: Array = $.codeTxt.text.split("\r");
-						trace("trimmed ifline "+trimIndents(lines[steps[i].lineNo]));
-						if (!evaluateIfStatement(trimIndents(lines[steps[i].lineNo]))) {
-							trace("false");
-							var endIfIndex = findFirstEndIf(steps[i].lineNo);
-							for (var j = endIfIndex; j > ifLine; j--) {
-								if (unevaluatedSteps.indexOf(j) == -1){
-									unevaluatedSteps.push(j);
-									trace("pushing step to remove "+j);
-								}
-							}
-						}
-						steps.splice(i, 1);
-						removedCount++;
-						trace(" final i "+i);
-					} else if (steps[i].operator != "endif") {
-						steps.splice(i, 1);
-						removedCount++;
-					}
+				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
+					// if you have an If, make sure to delete steps within if false
+					trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
+					steps.splice(i, 1);
+				} else if (SyntaxColor.branches.indexOf(steps[i].operator) != -1) {
+					trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
+					steps.splice(i, 1);
 					//trace("branch operator to remove "+steps[i].operator);
 				}
-				// else {
-					//trace("branch operator to remove else "+steps[i].operator);
-				//}
 				
 			}
 			trace("steps left in array "+steps.length);
+		}
+
+		// IN PROGRESS
+		private static function getUnevaluatedSteps():Array {
+			var unevaluatedLines: Array = new Array();
+			var lines:Array = $.codeTxt.text.split("\r");
+			var nextIfLine:int = SyntaxColor.nextIfLine(lines, 0);
+			while (nextIfLine != -1) {
+				var endIfIndex:int = SyntaxColor.findMatchingEndIf(lines, nextIfLine);
+				var beginIndex = WrappedLineUtils.getLineIndex($.codeTxt, nextIfLine);
+				var endIndex = WrappedLineUtils.getLineEndIndex($.codeTxt, nextIfLine);
+				var lineTxt:String = SyntaxColor.trim($.codeTxt.text.substring(beginIndex, endIndex));
+				if (!evaluateIfStatement(lineTxt)) {
+					for (var i = nextIfLine; i <= endIfIndex; i++) {
+						unevaluatedLines.push(i);
+					}
+				}
+				nextIfLine = SyntaxColor.nextIfLine(lines, ++nextIfLine);
+			}
+			return unevaluatedLines;
 		}
 
 		private static function setPrevLineNo() {
@@ -342,7 +218,6 @@ package classes {
 				steps[i].prevLineNo = steps[i - 1].lineNo;
 			}
 		}
-
 
 		//*** Second Pass interleaves the steps according to thread name
 		private static function processStepsArray() {
@@ -355,7 +230,7 @@ package classes {
 				for (var myKy: String in threadTracker) {
 					var goal: String = threadTracker[myKy];
 					var thred: String = myKy;
-					trace("step and thread "+step.operator + ", "+step.thred);
+					//trace("step and thread "+step.operator + ", "+step.thred);
 					interleaveStep(thred, goal);
 				}
 			} while (steps.length > 0);
@@ -365,9 +240,7 @@ package classes {
 				var thread: String = myKey;
 				if (thread != "base") thrdOrdr.push(thread);
 			}
-			
 		}
-
 
 		private static function interleaveStep(thread: String, goal: String) {
 			for (var i: int = 0; i < steps.length; i++) {
@@ -425,8 +298,6 @@ package classes {
 			var startTime: Number = threadTime;
 			var endTime: Number = startTime + stepTime + cycleTime;
 
-			trace("found end time for "+step.operator);
-
 			startTime = getResourceAvailability(resource, startTime, endTime, stepTime);
 
 
@@ -459,7 +330,6 @@ package classes {
 		private static function getResourceAvailability(resource: String, startTime: Number, endTime: Number, stepTime: Number): Number {
 			//pull the resource array of TimeObjects associated with the resource
 			var resourceArray: Array = resourceAvailability[resource]; //time the resource becomes available
-			trace("getting resource "+resourceArray);
 			for (var i: int = 0; i < resourceArray.length - 1; i++) {
 				if (resourceArray[i].et < resourceArray[i + 1].st) { //this means there's a gap - it's worth digging further
 					if (startTime >= resourceArray[i].et) { //if the resource availability occurs after the earliest possible start time, it's worth digging further
@@ -626,66 +496,6 @@ package classes {
 			return goalIndexesByName;
 		}
 
-		
-		//Purpose: Finds next value of lineCounter. 
-		//Input: Int lineCounter: lineNumber of Current If-statement
-		//Output: int: the lineNumber of the next statement to be processed
-		//	ifTrue: lineCounter - continue processing where you are.
-		//	ifFalse: the line of the matching EndIf;
-		private static function nextIfLine(lineCounter: int): int {
-			var lines: Array = $.codeTxt.text.split("\r");
-			var ifIsTrue: Boolean = evaluateIfStatement(trimIndents(lines[lineCounter]));
-			if (ifIsTrue) {
-				//do not jump any lines, lineCounter in parseloop will iterate to next line
-				return lineCounter;
-			} else {
-				//Jump to the end of the ifStatement
-				return findMatchingEndIf(lines, lineCounter);
-			}
-		}
-
-
-		//Purpose: Returns the lineNumber of the matching EndIf
-		//Input: Int lineCounter, the lineNumber of the current if statement
-		//Output: int of the matching EndIf
-		//		  if no ENDIF is found, returns end of program
-		//Notes: Should handle nested ifs (fingers crossed)  
-		//		 This method only runs when lines are to be skipped.
-		//		 However, lines should still be colorized, so solarizeLine is called regardless
-		private static function findMatchingEndIf(lines: Array, lineCounter: int): int {
-			var numIfs: int = 1;
-			var numEndIfs: int = 0;
-			for (var i = lineCounter; i < lines.length; i++) {
-				//SyntaxColor.solarizeLine(i);
-				var frontTrimmedLine: String = trimIndents(lines[i]);
-				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "if") { //Handles nested ifs
-					numIfs++; //for each if found, it must find an additional endif
-				} else if (tokens[0] == "endif") {
-					numEndIfs++;
-					if (numEndIfs == numIfs) {
-						trace("match endif line "+i);
-						return i;
-					}
-				}
-			}
-			return lines.length;
-		}
-
-		private static function findFirstEndIf(lineCounter: int): int {
-			var lines: Array = $.codeTxt.text.split("\r");
-			for (var i = lineCounter; i < lines.length; i++) {
-				//SyntaxColor.solarizeLine(i);
-				var frontTrimmedLine: String = trimIndents(lines[i]);
-				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "endif") {
-					trace("match endif line "+i);
-					return i;
-				}
-			}
-			return lines.length;
-		}
-
 
 		//Purpose: Checks the truth value of the input against the statetable
 		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
@@ -698,8 +508,11 @@ package classes {
 			var key: String = ifLine.split(' ')[1];
 			var ifValue: String = ifLine.split(' ')[2];
 			var tableValueString = $.stateTable[key];
-			trace("comparing "+tableValueString+" vs "+ifValue);
-			return (tableValueString === ifValue);
+			trace("ha"+tableValueString+ifValue+"ha");
+			if (tableValueString === ifValue) {
+				return true;
+			}
+			return false;
 		}
 		
 	}

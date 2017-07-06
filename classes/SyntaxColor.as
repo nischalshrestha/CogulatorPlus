@@ -56,7 +56,7 @@ package classes {
 		static var errorInLine:Boolean = false;
 
 		static var typing:Boolean = false;
-		
+
 		black.color = SolarizedPalette.black;
 		cyan.color = SolarizedPalette.cyan;
 		grey.color = SolarizedPalette.grey;
@@ -83,7 +83,6 @@ package classes {
 		
 		
 		public static function solarizeSelectedLine():Boolean {
-			trace("solarizeSelectedLine");
 			typing = true;
 			//get line number based on caret position
 			var lineNumber = WrappedLineUtils.getLineNumber($.codeTxt, $.codeTxt.caretIndex);
@@ -352,17 +351,11 @@ package classes {
 		//		  True if hasError.
 		//		  False if syntax is correct
 		//
-		//Notes: This function also checks for context errors such as states being defined twice
-		//		 or trying access a state that doesn't exist.  Because of this, errors must be 
-		//		 checked during processing instead of in ColorSyntax.
-		//	
-		//		 Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
+		//Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
 		//		 GenerateStepsArray when GoTo is processed.
-		
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
-
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
 				//CreateState name
@@ -410,14 +403,16 @@ package classes {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
 					return true;
+				} else {
+					// Check if it's missing an endif
+					var lines:Array = $.codeTxt.text.split("\r");
+					var nextIfLine:int = lineNum + 1;
+					if (findMatchingEndIf(lines, nextIfLine) == lines.length) {
+						errorInLine = true;
+						$.errors[lineNum] = "I was expecting an EndIf."
+						return true;
+					}
 				}
-				 else if (missingEndif(lineNum)) {
-					trace("missing end if!!");
-					errorInLine = true;
-					$.errors[lineNum] = "Missing an EndIf."
-					return true;
-				}
-				trace("missing end if "+missingEndif(lineNum));
 			} else if (operator == "endif") {
 				if (tokens.length != 1) {
 					errorInLine = true;
@@ -437,30 +432,47 @@ package classes {
 					return true;
 				}*/
 			}
-			trace("no errors");
-			//if ($.errors[lineNum] !== undefined) delete $.errors[lineNum];
 			errorInLine = false;
 			return false;
 		}
 
-		//Purpose: Recursively finds the closest endif to close the if
-		//Input: int ifLine (index of the if line), int endIfLine (index of the endif line if known), counter (keep track of position)
-		//Output: True if it found an endif, presumably the closest one.
-		//SideEffect:  None
-		private static function missingEndif(ifLine:int, endIfLine:int = -1, counter:int = -1):Boolean {
-			if (counter == -1) 
-				counter = WrappedLineUtils.getNumLines($.codeTxt) - 1;
-			if (ifLine == counter){
-				return (endIfLine == -1);
+		//Purpose: Finds next value of lineCounter. 
+		//Input: Int lineNum: lineNumber of Current If-statement
+		//Output: int: the lineNumber of the next statement to be processed
+		public static function nextIfLine(lines: Array, lineNum: int):int {
+			for (var i = lineNum; i < lines.length; i++) {
+				//SyntaxColor.solarizeLine(i);
+				var frontTrimmedLine: String = trim(lines[i].toLowerCase());
+				var tokens: Array = frontTrimmedLine.split(' ');
+				if (tokens[0].toLowerCase() == "if") {
+					return i; // once the next if is found, return the index
+				}
 			}
-			var beginIndex:int = WrappedLineUtils.getLineIndex($.codeTxt, counter);
-			var endIndex:int = WrappedLineUtils.getLineEndIndex($.codeTxt, counter);
-			var lineTxt:String = $.codeTxt.text.substring(beginIndex, endIndex);
-			var operator:String = trimIndents(trimColon(trim(lineTxt))).split(' ')[0].toLowerCase();
-			if (ifLine < counter && operator == "endif") {
-				endIfLine = counter;
+			return -1;
+		}
+
+		//Purpose: Returns the lineNumber of the matching EndIf
+		//Input: Int lineNum, the lineNumber of the current if statement
+		//Output: int of the matching EndIf
+		//		  if no ENDIF is found, returns end of program
+		//Notes: Handles possible nested ifs
+		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
+			var numIfs: int = 1;
+			var numEndIfs: int = 0;
+			for (var i = lineNum; i < lines.length; i++) {
+				//SyntaxColor.solarizeLine(i);
+				var frontTrimmedLine: String = trim(lines[i].toLowerCase());
+				var tokens: Array = frontTrimmedLine.split(' ');
+				if (tokens[0] == "if") { //Handles nested ifs
+					numIfs++; //for each if found, it must find an additional endif
+				} else if (tokens[0] == "endif") {
+					numEndIfs++;
+					if (numEndIfs == numIfs) {
+						return i;
+					}
+				}
 			}
-			return missingEndif(ifLine, endIfLine, --counter);
+			return lines.length;
 		}
 		
 		//Purpose: Creates new state in the stateTable, all values are represented as strings.
@@ -470,7 +482,6 @@ package classes {
 		private static function createState(key: String, value: String) {
 			$.stateTable[key] = value;
 		}
-
 
 		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
 		//Input: Array:String line		
@@ -643,8 +654,7 @@ package classes {
 		
 		}
 			
-			
-		private static function trim(s:String):String {
+		public static function trim(s:String):String {
 			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
 		}
 
