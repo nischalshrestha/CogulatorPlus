@@ -123,13 +123,6 @@ package classes {
 					var stepTime: String = syntaxArray[3];
 					var chunkNames: Array = syntaxArray[7];
 
-					/* 
-					trace("indentCount: "+indentCount);
-					trace("stepOperator: "+stepOperator);
-					trace("stepLabel: "+stepLabel);
-					trace("stepTime: "+stepTime);
-					trace("chunkNames: "+chunkNames.toString());*/
-
 					var methodGoal, methodThread:String;
 					if (stepOperator != "goal" && stepOperator != "also") {
 						var goalAndThread:Array = findGoalAndThread(indentCount); //determine the operator and thread
@@ -150,8 +143,7 @@ package classes {
 					}
 										
 					if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
-						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);				
-						//trace("pushing step");
+						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
 						//trace("step operator: "+stepOperator);
 						steps.push(s); 
 					}
@@ -169,7 +161,6 @@ package classes {
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				if (steps[i].operator == "goal" || steps[i].operator == "also") steps.splice(i, 1);
 			}
-			trace("steps left in array "+steps.length);
 		}
 
 		// IN PROGRESS
@@ -187,9 +178,7 @@ package classes {
 					steps.splice(i, 1);
 					//trace("branch operator to remove "+steps[i].operator);
 				}
-				
 			}
-			trace("steps left in array "+steps.length);
 		}
 
 		// IN PROGRESS
@@ -199,10 +188,11 @@ package classes {
 			var nextIfLine:int = SyntaxColor.nextIfLine(lines, 0);
 			while (nextIfLine != -1) {
 				var endIfIndex:int = SyntaxColor.findMatchingEndIf(lines, nextIfLine);
-				var beginIndex = WrappedLineUtils.getLineIndex($.codeTxt, nextIfLine);
-				var endIndex = WrappedLineUtils.getLineEndIndex($.codeTxt, nextIfLine);
-				var lineTxt:String = SyntaxColor.trim($.codeTxt.text.substring(beginIndex, endIndex));
-				if (!evaluateIfStatement(lineTxt)) {
+				var frontTrimmedLine: String = SyntaxColor.clean(lines[nextIfLine]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				var key: String = tokens[1];
+				var value: String = tokens[2];
+				if (!evaluateLastState(nextIfLine, key, value, unevaluatedLines)) {
 					for (var i = nextIfLine; i <= endIfIndex; i++) {
 						unevaluatedLines.push(i);
 					}
@@ -463,18 +453,6 @@ package classes {
 			return noComment;
 		}
 
-		//Purpose: removes spaces and periods from front of line so that we can identify the operator
-		//Input: String: raw line 
-		//	Example: "...CreateState goal_name value"
-		//Output: String: trimmed line 
-		//	Example: "CreateState goal_name value"
-		private static function trimIndents(line: String): String {
-			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
-				line = line.substr(1);
-			}
-			return line;
-		}
-
 		//Purpose: finds the lineNumbers of all goals in the program
 		//Input: None
 		//Output: Dictionary of goals and lines in the form: 
@@ -485,15 +463,32 @@ package classes {
 		private static function indexGoalLines(lines: Array): Dictionary {
 			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
 			for (var i = 0; i < lines.length; i++) {
-				var frontTrimmedLine: String = trimIndents(lines[i]);
+				var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0].toLowerCase() == "goal:") {
+				var operator: String = tokens[0].toLowerCase();
+				if (operator == "goal:") {
 					//Goal line assumed to be in the form "Goal: goal_name"
 					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
 					goalIndexesByName[goalName] = i;
 				}
 			}
 			return goalIndexesByName;
+		}
+
+		// IN PROGRESS
+		private static function evaluateLastState(ifLine: int, key: String, value: String, unevaluatedLines: Array): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			for (var i = ifLine - 1; i > -1; i--) {
+				if (unevaluatedLines.indexOf(i) == -1) {
+					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
+					var tokens: Array = frontTrimmedLine.split(' ');
+					var operator: String = tokens[0].toLowerCase();
+					if (tokens[1] == key && (operator == "setstate" || operator == "createstate")) {
+						return (tokens[2] == value);
+					}
+				}
+			}
+			return false;
 		}
 
 
@@ -508,11 +503,7 @@ package classes {
 			var key: String = ifLine.split(' ')[1];
 			var ifValue: String = ifLine.split(' ')[2];
 			var tableValueString = $.stateTable[key];
-			trace("ha"+tableValueString+ifValue+"ha");
-			if (tableValueString === ifValue) {
-				return true;
-			}
-			return false;
+			return (tableValueString === ifValue);
 		}
 		
 	}

@@ -244,18 +244,6 @@ package classes {
 			$.codeTxt.setTextFormat(errorred, beginIndex + chunkStartIndex + 1, beginIndex + chunkEndIndex - 1);
 		}
 
-		//Purpose: removes a possible colon off the end of the operator
-		//to make it be optional for parsing
-		//Input: String: operator string
-		//	Example: "CreateState: goal_name value"
-		//Output: String: trimmed operator 
-		//	Example: "CreateState goal_name value"
-		private static function trimColon(operator: String): String {
-			var colon:int = operator.indexOf(':');
-			if (colon != -1) return (operator.substring(0, colon) + operator.substring(colon + 1, operator.length));
-			return operator;
-		}
-
 		private static function solarizeBranchLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
 		//	trace("index "+index+", beginIndex "+beginIndex+", endIndex "+endIndex+", lineStartIndex "+lineStartIndex);
 			lineLabel = "";
@@ -406,8 +394,7 @@ package classes {
 				} else {
 					// Check if it's missing an endif
 					var lines:Array = $.codeTxt.text.split("\r");
-					var nextIfLine:int = lineNum + 1;
-					if (findMatchingEndIf(lines, nextIfLine) == lines.length) {
+					if (findMatchingEndIf(lines, lineNum) == lines.length) {
 						errorInLine = true;
 						$.errors[lineNum] = "I was expecting an EndIf."
 						return true;
@@ -441,7 +428,6 @@ package classes {
 		//Output: int: the lineNumber of the next statement to be processed
 		public static function nextIfLine(lines: Array, lineNum: int):int {
 			for (var i = lineNum; i < lines.length; i++) {
-				//SyntaxColor.solarizeLine(i);
 				var frontTrimmedLine: String = trim(lines[i].toLowerCase());
 				var tokens: Array = frontTrimmedLine.split(' ');
 				if (tokens[0].toLowerCase() == "if") {
@@ -459,8 +445,7 @@ package classes {
 		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
 			var numIfs: int = 1;
 			var numEndIfs: int = 0;
-			for (var i = lineNum; i < lines.length; i++) {
-				//SyntaxColor.solarizeLine(i);
+			for (var i = lineNum + 1; i < lines.length; i++) {
 				var frontTrimmedLine: String = trim(lines[i].toLowerCase());
 				var tokens: Array = frontTrimmedLine.split(' ');
 				if (tokens[0] == "if") { //Handles nested ifs
@@ -653,8 +638,12 @@ package classes {
 			}
 		
 		}
+
+		public static function clean(s: String): String {
+			return trimColon(trimIndents(trim(s)));
+		}
 			
-		public static function trim(s:String):String {
+		private static function trim(s: String): String {
 			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
 		}
 
@@ -668,6 +657,18 @@ package classes {
 				line = line.substr(1);
 			}
 			return line;
+		}
+
+				//Purpose: removes a possible colon off the end of the operator
+		//to make it be optional for parsing
+		//Input: String: operator string
+		//	Example: "CreateState: goal_name value"
+		//Output: String: trimmed operator 
+		//	Example: "CreateState goal_name value"
+		public static function trimColon(operator: String): String {
+			var colon:int = operator.indexOf(':');
+			if (colon != -1) return (operator.substring(0, colon) + operator.substring(colon + 1, operator.length));
+			return operator;
 		}
 		
 		private static function countIdents(lineTxt:String):int {
