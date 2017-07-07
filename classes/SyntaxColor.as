@@ -302,6 +302,11 @@ package classes {
 					break;
 				case "goto":
 					trace("case: "+operator);
+					if (hasError(tokens, lineNum)) {
+						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+					} else {
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+					}
 				/*
 					//Checks for infinite loops and syntax errors
 					//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
@@ -412,8 +417,12 @@ package classes {
 					$.errors[lineNum] = "I was expecting 2 arguments."
 					return true;
 				}
-				if (tokens.slice(0, 2).join(" ").toLowerCase() != "goto goal:")
+				if (clean(tokens.slice(0, 2).join(" ").toLowerCase()) != "goto goal") {
+					trace("cleaned up goto "+clean(tokens.slice(0, 2).join(" ").toLowerCase()));
+					errorInLine = true;
+					$.errors[lineNum] = "I was expecting something like 'goto goal'."
 					return true;
+				}
 				/*var goalLabel = tokens.slice(2, tokens.length).join(" ");
 				if(goalIndex[goalLabel] == undefined){
 					return true;
@@ -652,23 +661,27 @@ package classes {
 		//	Example: "...CreateState goal_name value"
 		//Output: String: trimmed line 
 		//	Example: "CreateState goal_name value"
-		private static function trimIndents(line: String): String {
+		public static function trimIndents(line: String): String {
 			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
 				line = line.substr(1);
 			}
 			return line;
 		}
 
-				//Purpose: removes a possible colon off the end of the operator
+		//Purpose: removes all colons from a string
 		//to make it be optional for parsing
 		//Input: String: operator string
 		//	Example: "CreateState: goal_name value"
 		//Output: String: trimmed operator 
 		//	Example: "CreateState goal_name value"
-		public static function trimColon(operator: String): String {
-			var colon:int = operator.indexOf(':');
-			if (colon != -1) return (operator.substring(0, colon) + operator.substring(colon + 1, operator.length));
-			return operator;
+		public static function trimColon(string: String): String {
+			var trimmed:String = string;
+			var colon:int = trimmed.indexOf(':');
+			while (colon != -1) {
+				trimmed = trimmed.substring(0, colon) + trimmed.substring(colon + 1, trimmed.length);
+				colon = trimmed.indexOf(':');
+			}
+			return trimmed;
 		}
 		
 		private static function countIdents(lineTxt:String):int {

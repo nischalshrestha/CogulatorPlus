@@ -88,12 +88,12 @@ package classes {
 			//trace("state table ")
 			generateStepsArray();
 
-			trace("generateStepsArray done");
+			//trace("generateStepsArray done");
 
 
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
 
-			trace("processStepsArray done");
+		//	trace("processStepsArray done");
 			
 
 			return (new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
@@ -171,10 +171,10 @@ package classes {
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
 					// if you have an If, make sure to delete steps within if false
-					trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
+					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
 					steps.splice(i, 1);
 				} else if (SyntaxColor.branches.indexOf(steps[i].operator) != -1) {
-					trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
+					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
 					steps.splice(i, 1);
 					//trace("branch operator to remove "+steps[i].operator);
 				}
@@ -490,7 +490,6 @@ package classes {
 			}
 			return false;
 		}
-
 
 		//Purpose: Checks the truth value of the input against the statetable
 		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)

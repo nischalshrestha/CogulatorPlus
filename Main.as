@@ -76,6 +76,7 @@ package {
 		var operatorArray:Array = new Array();
 
 		var stateTable: Dictionary = new Dictionary();
+		var goalTable: Dictionary = new Dictionary();
 
 		//    - create global variables object - 
 		var $:Global = Global.getInstance();
@@ -138,6 +139,7 @@ package {
 			$.codeTxt = codeTxt;
 			$.errors = errors;
 			$.stateTable = stateTable;
+			$.goalTable = goalTable;
 			$.automateButton = ganttWindow.automateButton;
 			
 			//stage setup - don't zoom
