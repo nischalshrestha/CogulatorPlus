@@ -672,9 +672,9 @@ package {
 				var interSteps:Array = vars[3];
 				for(var j:int = 0; j<interSteps.length; j++){
 					var step:Step = interSteps[j];
-						if (step.endTime > curRunTime){
-							curRunTime = step.endTime;
-						}
+					if (step.endTime > curRunTime){
+						curRunTime = step.endTime;
+					}
 				}
 				//var curRunTime:Number = vars[3].;
 

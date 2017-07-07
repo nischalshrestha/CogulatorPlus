@@ -56,6 +56,7 @@ package classes {
 		static var errorInLine:Boolean = false;
 
 		static var typing:Boolean = false;
+		private static var MAX_JUMPS: int = 20;
 
 		black.color = SolarizedPalette.black;
 		cyan.color = SolarizedPalette.cyan;
@@ -425,11 +426,18 @@ package classes {
 				}
 				indexGoalLines(lines);
 				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
-				if ($.goalTable[goalLabel] == undefined && !typing) {
+				var goalLine = $.goalTable[goalLabel];
+				if (goalLine == undefined && !typing) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
 					return true;
 				}
+				if (goalLine != undefined && goalLine < lineNum && checkInfiniteLoops(goalLine, lineNum)) {
+					errorInLine = true;
+					$.errors[lineNum] = "Infinite loop detected, please make sure loop terminates."
+					return true;
+				}
+				lineLabel = goalLabel;
 				/*var goalLabel = tokens.slice(2, tokens.length).join(" ");
 				if(goalIndex[goalLabel] == undefined){
 					return true;
@@ -439,12 +447,68 @@ package classes {
 			return false;
 		}
 
+		// This checks if there is an infinite loop which happens if we make 20 jumps from
+		// the gotoLine and back. This is only possible when the goal is definied above the
+		// goto line to create the loop.
+		private static function checkInfiniteLoops(goalLine: int, gotoLine: int): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			var jumps:int = 0;
+			var nextIfLine: int = nextIfLine(lines, goalLine);
+			while (nextIfLine != -1 && jumps < MAX_JUMPS) {
+				var unevaluatedLines:Array = getUnevaluatedSteps();
+				if (unevaluatedLines.indexOf(gotoLine) != -1) {
+					return false;
+				} else {
+					jumps++;
+				}
+			}
+			return true;
+		}
+
+			// IN PROGRESS
+		private static function getUnevaluatedSteps(ifLine: int = 0):Array {
+			var unevaluatedLines: Array = new Array();
+			var lines:Array = $.codeTxt.text.split("\r");
+			var nextIfLine:int = SyntaxColor.nextIfLine(lines, ifLine);
+			while (nextIfLine != -1) {
+				var endIfIndex:int = SyntaxColor.findMatchingEndIf(lines, nextIfLine);
+				var frontTrimmedLine: String = SyntaxColor.clean(lines[nextIfLine]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				var key: String = tokens[1];
+				var value: String = tokens[2];
+				if (!evaluateLastState(nextIfLine, key, value, unevaluatedLines)) {
+					for (var i = nextIfLine; i <= endIfIndex; i++) {
+						unevaluatedLines.push(i);
+					}
+				}
+				nextIfLine = SyntaxColor.nextIfLine(lines, ++nextIfLine);
+			}
+			return unevaluatedLines;
+		}
+
+				// IN PROGRESS
+		private static function evaluateLastState(ifLine: int, key: String, value: String, unevaluatedLines: Array): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			for (var i = ifLine - 1; i > -1; i--) {
+				if (unevaluatedLines.indexOf(i) == -1) {
+					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
+					var tokens: Array = frontTrimmedLine.split(' ');
+					var operator: String = tokens[0].toLowerCase();
+					if (tokens[1] == key && (operator == "setstate" || operator == "createstate")) {
+						return (tokens[2] == value);
+					}
+				}
+			}
+			return false;
+		}
+
+
 		//Purpose: Finds next value of lineCounter. 
 		//Input: Int lineNum: lineNumber of Current If-statement
 		//Output: int: the lineNumber of the next statement to be processed
 		public static function nextIfLine(lines: Array, lineNum: int):int {
 			for (var i = lineNum; i < lines.length; i++) {
-				var frontTrimmedLine: String = trim(lines[i].toLowerCase());
+				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
 				var tokens: Array = frontTrimmedLine.split(' ');
 				if (tokens[0].toLowerCase() == "if") {
 					return i; // once the next if is found, return the index
@@ -459,10 +523,10 @@ package classes {
 		//		  if no ENDIF is found, returns end of program
 		//Notes: Handles possible nested ifs
 		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
-			var numIfs: int = 1;
+			var numIfs: int = 0;
 			var numEndIfs: int = 0;
-			for (var i = lineNum + 1; i < lines.length; i++) {
-				var frontTrimmedLine: String = trim(lines[i].toLowerCase());
+			for (var i = lineNum; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
 				var tokens: Array = frontTrimmedLine.split(' ');
 				if (tokens[0] == "if") { //Handles nested ifs
 					numIfs++; //for each if found, it must find an additional endif
@@ -522,7 +586,7 @@ package classes {
 				var tokens: Array = frontTrimmedLine.split(' ');
 				var operator: String = tokens[0].toLowerCase();
 				if (operator == "goal") {
-					//Goal line assumed to be in the form "Goal: goal_name"
+					//Goal line assumed to be in the form "goal goal_name"
 					var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
 					$.goalTable[goalName] = i;
 				}

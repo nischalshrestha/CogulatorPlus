@@ -51,7 +51,6 @@ package classes {
 		private static var maxEndTime: Number; // = 0;
 		private static var cycleTime: Number;
 
-
 		public static function processGOMS(): Array {
 			maxEndTime = 0;
 			cycleTime = 0; //ms. 50 ms Based on production rule cycle time.  Bovair & Kieras/Card, Moran & Newell
@@ -104,13 +103,7 @@ package classes {
 		private static function generateStepsArray() {
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
-			var endIndex: int = codeLines[0].length;
-			var jumps:int = 0;
-
-			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
-			//SyntaxColor.solarizeAll();
-			
-			
+			var endIndex: int = codeLines[0].length;			
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				endIndex = beginIndex + line.length;
@@ -155,6 +148,7 @@ package classes {
 
 			removeGoalSteps();
 			removeBranchSteps();
+			//evaluateGotoSteps();
 			setPrevLineNo();
 			//trace("finish generateStepsArray");
 
@@ -203,11 +197,12 @@ package classes {
 			var endifIndex:int = 0;
 			//steps.clear();
 			for (var i: int = steps.length - 1; i > -1; i--) {
+				var branchStep: int = SyntaxColor.branches.indexOf(steps[i].operator);
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
 					// if you have an If, make sure to delete steps within if false
 					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
 					steps.splice(i, 1);
-				} else if (SyntaxColor.branches.indexOf(steps[i].operator) != -1) {
+				} else if (branchStep != -1 && steps[i].operator != "goto") {
 					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
 					steps.splice(i, 1);
 					//trace("branch operator to remove "+steps[i].operator);
@@ -216,10 +211,10 @@ package classes {
 		}
 
 		// IN PROGRESS
-		private static function getUnevaluatedSteps():Array {
+		private static function getUnevaluatedSteps(ifLine: int = 0):Array {
 			var unevaluatedLines: Array = new Array();
 			var lines:Array = $.codeTxt.text.split("\r");
-			var nextIfLine:int = SyntaxColor.nextIfLine(lines, 0);
+			var nextIfLine:int = SyntaxColor.nextIfLine(lines, ifLine);
 			while (nextIfLine != -1) {
 				var endIfIndex:int = SyntaxColor.findMatchingEndIf(lines, nextIfLine);
 				var frontTrimmedLine: String = SyntaxColor.clean(lines[nextIfLine]);
@@ -235,6 +230,50 @@ package classes {
 			}
 			return unevaluatedLines;
 		}
+		/*
+		// By the time this method is called, we have removed all steps that won't be
+		// evaluated from the removeBranchSteps() method. For any remaining gotos let's
+		// evaluate them and check for infinite loops and if not inline them with the
+		// steps array for processing
+		private static function evaluateGotoSteps(): void {
+			var lines: Array = $.codeTxt.text.split("\r");
+			for (var i: int = steps.length - 1; i > -1; i--) {
+				var step:Step = steps[i];
+				trace("goalLabel "+step.operator);
+				if (step.operator == "goto") {
+					var gotoLine:int = step.lineNo;
+					var goalLabel:String = step.label;
+					var goalLine = $.goalTable[goalLabel];
+					if (goalLine != undefined && !checkInfiniteLoops(goalLine, gotoLine)) {
+						//var inlineSteps:Array = getInlineSteps(goalLine, gotoLine);
+						trace("no infinite loop with goto at line "+gotoLine);
+					} else {
+						trace("infinite loop exists with goto at line "+gotoLine);
+						steps.splice(i, 1);
+						$.errors[]
+						break;
+					}
+				}
+			}
+		}
+
+		// This checks if there is an infinite loop which happens if we make 20 jumps from
+		// the gotoLine and back. This is only possible when the goal is definied above the
+		// goto line to create the loop.
+		private static function checkInfiniteLoops(goalLine: int, gotoLine: int): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			var jumps:int = 0;
+			var nextIfLine: int = SyntaxColor.nextIfLine(lines, goalLine);
+			while (nextIfLine != -1 && jumps < MAX_JUMPS) {
+				var unevaluatedLines:Array = getUnevaluatedSteps();
+				if (unevaluatedLines.indexOf(gotoLine) != -1) {
+					return false;
+				} else {
+					jumps++;
+				}
+			}
+			return true;
+		}*/
 
 		private static function setPrevLineNo() {
 			//steps[0] is set to 0 by default, all others should be updated
