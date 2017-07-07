@@ -83,6 +83,7 @@ package classes {
 
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
 			for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
+			for (var key: Object in $.goalTable) delete $.goalTable[key]; // clear out all $.stateTable
 
 			SyntaxColor.typing = false;
 			//trace("state table ")
@@ -113,7 +114,7 @@ package classes {
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				endIndex = beginIndex + line.length;
-				goalIndex = indexGoalLines(codeLines);
+				
 				if (StringUtils.trim(line) != "") {
 					var syntaxArray:Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
 
@@ -150,6 +151,8 @@ package classes {
 				}
 				beginIndex = endIndex + 1;
 			}
+			var lines:Array = $.codeTxt.text.split("\r");
+
 			removeGoalSteps();
 			removeBranchSteps();
 			setPrevLineNo();
@@ -164,8 +167,39 @@ package classes {
 		}
 
 		// IN PROGRESS
+		private static function evaluateLastState(ifLine: int, key: String, value: String, unevaluatedLines: Array): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			for (var i = ifLine - 1; i > -1; i--) {
+				if (unevaluatedLines.indexOf(i) == -1) {
+					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
+					var tokens: Array = frontTrimmedLine.split(' ');
+					var operator: String = tokens[0].toLowerCase();
+					if (tokens[1] == key && (operator == "setstate" || operator == "createstate")) {
+						return (tokens[2] == value);
+					}
+				}
+			}
+			return false;
+		}
+
+		//Purpose: Checks the truth value of the input against the statetable
+		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
+		//Output: Boolean: if an entry in StateTable matches exactly the key and value
+		//
+		//Hint: if debugging, check that whitespace characters have been trimmed
+		//in both the table and the input
+		private static function evaluateIfStatement(ifLine: String): Boolean {
+			//input must be in the form "If key value"
+			var key: String = ifLine.split(' ')[1];
+			var ifValue: String = ifLine.split(' ')[2];
+			var tableValueString = $.stateTable[key];
+			return (tableValueString === ifValue);
+		}
+
+		// IN PROGRESS
 		private static function removeBranchSteps() {
 			var unevaluatedLines:Array = getUnevaluatedSteps();
+
 			var endifIndex:int = 0;
 			//steps.clear();
 			for (var i: int = steps.length - 1; i > -1; i--) {
@@ -451,58 +485,6 @@ package classes {
 			else noComment = commentedStr;
 
 			return noComment;
-		}
-
-		//Purpose: finds the lineNumbers of all goals in the program
-		//Input: None
-		//Output: Dictionary of goals and lines in the form: 
-		//		key: goal_name
-		//		value: lineNumber
-		//Notes: Does not enforce scope
-		//		 Goal line assumed to be in the form "...Goal: goal_name"
-		private static function indexGoalLines(lines: Array): Dictionary {
-			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
-			for (var i = 0; i < lines.length; i++) {
-				var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
-				var tokens: Array = frontTrimmedLine.split(' ');
-				var operator: String = tokens[0].toLowerCase();
-				if (operator == "goal:") {
-					//Goal line assumed to be in the form "Goal: goal_name"
-					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
-					goalIndexesByName[goalName] = i;
-				}
-			}
-			return goalIndexesByName;
-		}
-
-		// IN PROGRESS
-		private static function evaluateLastState(ifLine: int, key: String, value: String, unevaluatedLines: Array): Boolean {
-			var lines:Array = $.codeTxt.text.split("\r");
-			for (var i = ifLine - 1; i > -1; i--) {
-				if (unevaluatedLines.indexOf(i) == -1) {
-					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
-					var tokens: Array = frontTrimmedLine.split(' ');
-					var operator: String = tokens[0].toLowerCase();
-					if (tokens[1] == key && (operator == "setstate" || operator == "createstate")) {
-						return (tokens[2] == value);
-					}
-				}
-			}
-			return false;
-		}
-
-		//Purpose: Checks the truth value of the input against the statetable
-		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
-		//Output: Boolean: if an entry in StateTable matches exactly the key and value
-		//
-		//Hint: if debugging, check that whitespace characters have been trimmed
-		//in both the table and the input
-		private static function evaluateIfStatement(ifLine: String): Boolean {
-			//input must be in the form "If key value"
-			var key: String = ifLine.split(' ')[1];
-			var ifValue: String = ifLine.split(' ')[2];
-			var tableValueString = $.stateTable[key];
-			return (tableValueString === ifValue);
 		}
 		
 	}

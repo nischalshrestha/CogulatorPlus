@@ -349,6 +349,7 @@ package classes {
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
+			var lines:Array = $.codeTxt.text.split("\r");
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
 				//CreateState name
@@ -398,7 +399,6 @@ package classes {
 					return true;
 				} else {
 					// Check if it's missing an endif
-					var lines:Array = $.codeTxt.text.split("\r");
 					if (findMatchingEndIf(lines, lineNum) == lines.length) {
 						errorInLine = true;
 						$.errors[lineNum] = "I was expecting an EndIf."
@@ -421,6 +421,13 @@ package classes {
 					trace("cleaned up goto "+clean(tokens.slice(0, 2).join(" ").toLowerCase()));
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting something like 'goto goal'."
+					return true;
+				}
+				indexGoalLines(lines);
+				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
+				if ($.goalTable[goalLabel] == undefined && !typing) {
+					errorInLine = true;
+					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
 					return true;
 				}
 				/*var goalLabel = tokens.slice(2, tokens.length).join(" ");
@@ -473,7 +480,7 @@ package classes {
 		//Input: String key, String value (target1, visited)
 		//Output: none
 		//	SideEffect:  An new entry in global stateTable is added
-		private static function createState(key: String, value: String) {
+		private static function createState(key: String, value: String): void {
 			$.stateTable[key] = value;
 		}
 
@@ -484,7 +491,7 @@ package classes {
 
 		//Output: none
 		//	SideEffect:  An existing entry in global stateTable is changed
-		private static function setState(line: Array) {
+		private static function setState(line: Array): void {
 			if(line.length == 3){
 				//trace("Found straight case.\n")
 				$.stateTable[line[1]] = line[2];
@@ -497,6 +504,27 @@ package classes {
 					//trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
 				} else {
 					//trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+				}
+			}
+		}
+
+
+		//Purpose: finds the lineNumbers of all goals in the program
+		//Input: None
+		//Output: Dictionary of goals and lines in the form: 
+		//		key: goal_name
+		//		value: lineNumber
+		//Notes: Does not enforce scope
+		//		 Goal line assumed to be in the form "...Goal: goal_name"
+		private static function indexGoalLines(lines: Array): void {
+			for (var i = 0; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				var operator: String = tokens[0].toLowerCase();
+				if (operator == "goal") {
+					//Goal line assumed to be in the form "Goal: goal_name"
+					var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
+					$.goalTable[goalName] = i;
 				}
 			}
 		}
