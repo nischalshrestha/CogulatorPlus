@@ -268,21 +268,19 @@ package classes {
 					if (hasError(tokens, lineNum)) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
-						createState(tokens[1], tokens[2]);
+						createState(lineNum, tokens[1], tokens[2]);
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
 					break;
 				case "setstate":
-					trace("case: "+operator);
 					if (hasError(tokens, lineNum)) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
-						setState(tokens);
+						setState(lineNum, tokens);
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
 					break;
 				case "if":
-					trace("case: "+operator);
 					if (hasError(tokens, lineNum)) {
 						//ErrorColorLine(lineNum);
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
@@ -293,7 +291,6 @@ package classes {
 					}
 					break;
 				case "endif":
-					trace("case: "+operator);
 					if (hasError(tokens, lineNum)) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else if (endIndex < lineTxt.length) {
@@ -302,7 +299,6 @@ package classes {
 					//ignore EndIfs, but are useful in processing original statement.
 					break;
 				case "goto":
-					trace("case: "+operator);
 					if (hasError(tokens, lineNum)) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
@@ -424,6 +420,7 @@ package classes {
 					$.errors[lineNum] = "I was expecting something like 'goto goal'."
 					return true;
 				}
+				// Index all goals defined and check if goal exists
 				indexGoalLines(lines);
 				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
 				var goalLine = $.goalTable[goalLabel];
@@ -432,41 +429,79 @@ package classes {
 					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
 					return true;
 				}
+				// If it does, check that there is no infinite loop with this goto
 				if (goalLine != undefined && goalLine < lineNum && checkInfiniteLoops(goalLine, lineNum)) {
 					errorInLine = true;
 					$.errors[lineNum] = "Infinite loop detected, please make sure loop terminates."
 					return true;
 				}
 				lineLabel = goalLabel;
-				/*var goalLabel = tokens.slice(2, tokens.length).join(" ");
-				if(goalIndex[goalLabel] == undefined){
-					return true;
-				}*/
 			}
 			errorInLine = false;
 			return false;
 		}
 
 		// This checks if there is an infinite loop which happens if we make 20 jumps from
-		// the gotoLine and back. This is only possible when the goal is definied above the
+		// the gotoLine and back. This is only possible when the goal is defined above the
 		// goto line to create the loop.
 		private static function checkInfiniteLoops(goalLine: int, gotoLine: int): Boolean {
 			var lines:Array = $.codeTxt.text.split("\r");
 			var jumps:int = 0;
-			var nextIfLine: int = nextIfLine(lines, goalLine);
-			while (nextIfLine != -1 && jumps < MAX_JUMPS) {
-				var unevaluatedLines:Array = getUnevaluatedSteps();
-				if (unevaluatedLines.indexOf(gotoLine) != -1) {
-					return false;
-				} else {
-					jumps++;
+			var nextIfLine:int = nextIfLine(lines, goalLine);
+			while (jumps < MAX_JUMPS) {
+				for (var i = goalLine+1; i < gotoLine; i++) {
+					var frontTrimmedLine:String = SyntaxColor.clean(lines[i]);
+					var tokens:Array = frontTrimmedLine.split(' ');
+					if (tokens[0] == "if") {
+						var unevaluatedLines:Array = getUnevaluatedSteps();
+						if (unevaluatedLines.indexOf(gotoLine) != -1) { // goto was finally excluded from execution
+							return false;
+						}
+					}
 				}
+				jumps++;
 			}
 			return true;
 		}
 
-			// IN PROGRESS
-		private static function getUnevaluatedSteps(ifLine: int = 0):Array {
+		// This method will return all the steps required in the goto loop
+		public static function getLoopSteps(goalLine: int, gotoLine: int): Array {
+			var lines:Array = $.codeTxt.text.split("\r");
+			var inlineSteps:Array = new Array();
+			var nextIfLine: int = nextIfLine(lines, goalLine);
+			var breakout:Boolean = false;
+			var iter:int = 0;
+			// iterate from goalLine
+			while (!breakout) {
+				trace("iter "+iter); // goto was finally excluded from execution
+				for (var i = goalLine+1; i < gotoLine; i++) {
+					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
+					var tokens: Array = frontTrimmedLine.split(' ');
+					if (tokens[0] == "if") {
+						var normal:Boolean = iter >= 1;
+						var unevaluatedLines:Array = getUnevaluatedSteps(i);
+						if (unevaluatedLines.indexOf(gotoLine) == -1) { 
+							//trace("don't add unevaluated steps "+unevaluatedLines.toString());
+							//inlineSteps.push(unevaluatedLines);
+						} 
+						else {
+						//	trace("break out "+iter); // goto was finally excluded from execution
+							//trace("add step "+i)
+							breakout = true;
+							//break;
+						}
+					} else {
+						trace("add step "+i)
+						inlineSteps.push(i);
+					}
+				}
+				iter++;
+			}
+			return inlineSteps;
+		}
+
+	// IN PROGRESS; needs to be more general to include unevaluated lines bc of goto as well
+		public static function getUnevaluatedSteps(ifLine: int = 0):Array {
 			var unevaluatedLines: Array = new Array();
 			var lines:Array = $.codeTxt.text.split("\r");
 			var nextIfLine:int = SyntaxColor.nextIfLine(lines, ifLine);
@@ -476,7 +511,7 @@ package classes {
 				var tokens: Array = frontTrimmedLine.split(' ');
 				var key: String = tokens[1];
 				var value: String = tokens[2];
-				if (!evaluateLastState(nextIfLine, key, value, unevaluatedLines)) {
+				if (!evaluateIfStatement(nextIfLine, tokens[1], tokens[2])) {
 					for (var i = nextIfLine; i <= endIfIndex; i++) {
 						unevaluatedLines.push(i);
 					}
@@ -486,20 +521,25 @@ package classes {
 			return unevaluatedLines;
 		}
 
-				// IN PROGRESS
-		private static function evaluateLastState(ifLine: int, key: String, value: String, unevaluatedLines: Array): Boolean {
-			var lines:Array = $.codeTxt.text.split("\r");
-			for (var i = ifLine - 1; i > -1; i--) {
-				if (unevaluatedLines.indexOf(i) == -1) {
-					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
-					var tokens: Array = frontTrimmedLine.split(' ');
-					var operator: String = tokens[0].toLowerCase();
-					if (tokens[1] == key && (operator == "setstate" || operator == "createstate")) {
-						return (tokens[2] == value);
-					}
+		//Purpose: Checks the truth value of the input against the statetable
+		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
+		//Output: Boolean: if an entry in StateTable matches exactly the key and value
+		//
+		//Hint: if debugging, check that whitespace characters have been trimmed
+		//in both the table and the input
+		public static function evaluateIfStatement(lineNo: int, ifKey: String, ifValue: String): Boolean {
+			trace("evaluating if..");
+			//input must be in the form "If key value"
+			var scopeList:Array = $.stateTable[ifKey];
+			var tableValueString:String;
+			for (var i = 0; i < scopeList.length; i++) {
+				if (scopeList[i].lineNo < lineNo) {
+					tableValueString = scopeList[i].value;
+				} else {
+					break;
 				}
 			}
-			return false;
+			return (tableValueString === ifValue);
 		}
 
 
@@ -544,8 +584,13 @@ package classes {
 		//Input: String key, String value (target1, visited)
 		//Output: none
 		//	SideEffect:  An new entry in global stateTable is added
-		private static function createState(key: String, value: String): void {
-			$.stateTable[key] = value;
+		private static function createState(lineNo: int, key: String, value: String): void {
+			var state:Object = new Object();
+			state.lineNo = lineNo;
+			state.value = value;
+			var scopeList:Array = new Array();
+			scopeList.push(state);
+			$.stateTable[key] = scopeList;
 		}
 
 		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
@@ -555,16 +600,19 @@ package classes {
 
 		//Output: none
 		//	SideEffect:  An existing entry in global stateTable is changed
-		private static function setState(line: Array): void {
+		private static function setState(lineNo: int, line: Array): void {
+			var state:Object = new Object();
+			state.lineNo = lineNo;
+			state.value = line[2];
 			if(line.length == 3){
 				//trace("Found straight case.\n")
-				$.stateTable[line[1]] = line[2];
+				// grab the scope list associated with the state and push the new scope in
+				$.stateTable[line[1]].push(state);
 			} else { //should have 4 tokens, SetState state_name value probability (number between 0-1) 
 				var randomNumber:Number = Math.random();
 				var givenProbability:Number = Number(line[3]);
-				
 				if(randomNumber < givenProbability){
-					$.stateTable[line[1]] = line[2];
+					$.stateTable[line[1]].push(state);
 					//trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
 				} else {
 					//trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
@@ -741,7 +789,7 @@ package classes {
 		}
 
 		public static function clean(s: String): String {
-			return trimColon(trimIndents(trim(s)));
+			return trimColon(trimIndents(trim(s))).toLowerCase();
 		}
 			
 		private static function trim(s: String): String {

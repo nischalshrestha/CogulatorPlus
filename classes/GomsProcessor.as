@@ -43,8 +43,6 @@ package classes {
 		private static var threadTracker: Dictionary; // tracks the active method for each thread
 		private static var resourceAvailability: Dictionary;
 		private static var threadAvailability: Dictionary;
-		private static var goalIndex: Dictionary;
-
 
 		private static var newThreadNumber: int; // = 0; //used as a thread name for "Also" when one is not provided
 
@@ -65,7 +63,6 @@ package classes {
 			threadTracker = new Dictionary(); //hashmap that tracks that active goal for each thread
 			resourceAvailability = new Dictionary();
 			threadAvailability = new Dictionary();
-			goalIndex = new Dictionary();
 
 			//(<resource name>, <time resource comes available>)
 			var to: TimeObject = new TimeObject(0, 0);
@@ -81,8 +78,8 @@ package classes {
 
 
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
-			for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
-			for (var key: Object in $.goalTable) delete $.goalTable[key]; // clear out all $.stateTable
+			for (var key1: Object in $.stateTable) delete $.stateTable[key1]; // clear out all $.stateTable
+			for (var key2: Object in $.goalTable) delete $.goalTable[key2]; // clear out all $.stateTable
 
 			SyntaxColor.typing = false;
 			//trace("state table ")
@@ -147,8 +144,8 @@ package classes {
 			var lines:Array = $.codeTxt.text.split("\r");
 
 			removeGoalSteps();
+			evaluateGotoSteps();
 			removeBranchSteps();
-			//evaluateGotoSteps();
 			setPrevLineNo();
 			//trace("finish generateStepsArray");
 
@@ -158,42 +155,13 @@ package classes {
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				if (steps[i].operator == "goal" || steps[i].operator == "also") steps.splice(i, 1);
 			}
-		}
 
-		// IN PROGRESS
-		private static function evaluateLastState(ifLine: int, key: String, value: String, unevaluatedLines: Array): Boolean {
-			var lines:Array = $.codeTxt.text.split("\r");
-			for (var i = ifLine - 1; i > -1; i--) {
-				if (unevaluatedLines.indexOf(i) == -1) {
-					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
-					var tokens: Array = frontTrimmedLine.split(' ');
-					var operator: String = tokens[0].toLowerCase();
-					if (tokens[1] == key && (operator == "setstate" || operator == "createstate")) {
-						return (tokens[2] == value);
-					}
-				}
-			}
-			return false;
-		}
-
-		//Purpose: Checks the truth value of the input against the statetable
-		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
-		//Output: Boolean: if an entry in StateTable matches exactly the key and value
-		//
-		//Hint: if debugging, check that whitespace characters have been trimmed
-		//in both the table and the input
-		private static function evaluateIfStatement(ifLine: String): Boolean {
-			//input must be in the form "If key value"
-			var key: String = ifLine.split(' ')[1];
-			var ifValue: String = ifLine.split(' ')[2];
-			var tableValueString = $.stateTable[key];
-			return (tableValueString === ifValue);
 		}
 
 		// IN PROGRESS
 		private static function removeBranchSteps() {
-			var unevaluatedLines:Array = getUnevaluatedSteps();
-
+			var unevaluatedLines:Array = SyntaxColor.getUnevaluatedSteps();
+			trace("unevaluatedLines: "+unevaluatedLines.toString());
 			var endifIndex:int = 0;
 			//steps.clear();
 			for (var i: int = steps.length - 1; i > -1; i--) {
@@ -201,79 +169,87 @@ package classes {
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
 					// if you have an If, make sure to delete steps within if false
 					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
-					steps.splice(i, 1);
-				} else if (branchStep != -1 && steps[i].operator != "goto") {
-					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
-					steps.splice(i, 1);
-					//trace("branch operator to remove "+steps[i].operator);
+					steps.splice(i, 1);	
+				} else if (branchStep != -1) {
+					steps.splice(i, 1);	
 				}
 			}
 		}
 
-		// IN PROGRESS
-		private static function getUnevaluatedSteps(ifLine: int = 0):Array {
-			var unevaluatedLines: Array = new Array();
-			var lines:Array = $.codeTxt.text.split("\r");
-			var nextIfLine:int = SyntaxColor.nextIfLine(lines, ifLine);
-			while (nextIfLine != -1) {
-				var endIfIndex:int = SyntaxColor.findMatchingEndIf(lines, nextIfLine);
-				var frontTrimmedLine: String = SyntaxColor.clean(lines[nextIfLine]);
-				var tokens: Array = frontTrimmedLine.split(' ');
-				var key: String = tokens[1];
-				var value: String = tokens[2];
-				if (!evaluateLastState(nextIfLine, key, value, unevaluatedLines)) {
-					for (var i = nextIfLine; i <= endIfIndex; i++) {
-						unevaluatedLines.push(i);
-					}
-				}
-				nextIfLine = SyntaxColor.nextIfLine(lines, ++nextIfLine);
-			}
-			return unevaluatedLines;
-		}
-		/*
+		
 		// By the time this method is called, we have removed all steps that won't be
-		// evaluated from the removeBranchSteps() method. For any remaining gotos let's
-		// evaluate them and check for infinite loops and if not inline them with the
-		// steps array for processing
+		// evaluated from the removeBranchSteps() method. SyntaxColor has also taken care
+		// of alerting us to any infinite loops, so we now only deal with valid gotos.
+		// For any remaining gotos, this method evaluates them and inlines the steps by
+		// creating an array that contains inline steps and inserting that to the steps array 
+		// for GanttChart processing
 		private static function evaluateGotoSteps(): void {
+			for (var i: int = 0; i < steps.length - 1; i++) {
+				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
+			}
 			var lines: Array = $.codeTxt.text.split("\r");
+			var inlineSteps: Array = new Array();
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				var step:Step = steps[i];
-				trace("goalLabel "+step.operator);
 				if (step.operator == "goto") {
 					var gotoLine:int = step.lineNo;
 					var goalLabel:String = step.label;
 					var goalLine = $.goalTable[goalLabel];
-					if (goalLine != undefined && !checkInfiniteLoops(goalLine, gotoLine)) {
-						//var inlineSteps:Array = getInlineSteps(goalLine, gotoLine);
-						trace("no infinite loop with goto at line "+gotoLine);
-					} else {
-						trace("infinite loop exists with goto at line "+gotoLine);
-						steps.splice(i, 1);
-						$.errors[]
-						break;
-					}
+					// inline the steps for the goal we're jumping too
+					inlineGoalSteps(lines, gotoLine, goalLine);
 				}
 			}
+			//trace("resulting steps after inline: "+steps.toString());
+			for (var i: int = 0; i < steps.length - 1; i++) {
+				trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
+			}
+
 		}
 
-		// This checks if there is an infinite loop which happens if we make 20 jumps from
-		// the gotoLine and back. This is only possible when the goal is definied above the
-		// goto line to create the loop.
-		private static function checkInfiniteLoops(goalLine: int, gotoLine: int): Boolean {
-			var lines:Array = $.codeTxt.text.split("\r");
-			var jumps:int = 0;
-			var nextIfLine: int = SyntaxColor.nextIfLine(lines, goalLine);
-			while (nextIfLine != -1 && jumps < MAX_JUMPS) {
-				var unevaluatedLines:Array = getUnevaluatedSteps();
-				if (unevaluatedLines.indexOf(gotoLine) != -1) {
-					return false;
-				} else {
-					jumps++;
+		// This is companion function to evaluateGotoSteps() to return an Array of the inline
+		// steps necessary for the goto. It handles loops and jumps, where loops happen if the
+		// goal is defined above the goto, and jumps the reverse
+		private static function inlineGoalSteps(lines: Array, gotoLine: int, goalLine: int): void {
+			var inlineSteps:Array = new Array();
+			// Handle loop
+			if (goalLine < gotoLine) {
+				inlineSteps = SyntaxColor.getLoopSteps(goalLine, gotoLine);
+				trace("returned inline "+inlineSteps.toString());
+				var newSteps:Array = new Array();
+				var beginIndex:int = -1;
+				for (var i: int = 0; i < inlineSteps.length; i++){
+					for (var j: int = 0; j < steps.length; j++) {
+						if (steps[j].lineNo == inlineSteps[i]) {
+							newSteps.push(steps[j]);
+							if (beginIndex == -1) {
+								beginIndex = j;
+							}
+						}
+					}
 				}
-			}
-			return true;
-		}*/
+				// remove the goto
+				steps.splice(beginIndex, 1); 
+				var newStepIndex:int = 0;
+				// replace the goto with the new steps to inline
+				trace("adding new steps "+beginIndex+" "+ newSteps.length);
+				for (var i:int= beginIndex; i < newSteps.length; i++, newStepIndex++) {
+					steps.insertAt(i, newSteps[newStepIndex]);
+				}
+
+				//steps.splice(beginIndex+newSteps.length, steps.length);
+			} 
+			/*else { // handle jump forward
+				for (var i: int = steps.length - 1; i > -1; i--) {
+					var step:Step = steps[i];
+					trace("goalLabel "+step.operator);
+					if (step.lineNo > gotoLine && step.lineNo < ) {
+						// inline the steps for the goal we're jumping too
+
+					}
+				}
+			}*/
+			//return inlineSteps;
+		}
 
 		private static function setPrevLineNo() {
 			//steps[0] is set to 0 by default, all others should be updated
@@ -368,6 +344,9 @@ package classes {
 
 			//store the results for the next go round
 			threadAvailability[thread] = new TimeObject(startTime, endTime);
+
+			trace("start time "+startTime + " "+step.label);
+			//trace("end time "+endTime + " "+step.label);
 
 
 			var reslt: Array = new Array();
@@ -510,7 +489,6 @@ package classes {
 					return op.resource.toLowerCase();
 				}
 			}
-			trace("no match resource for "+operator);
 			return "no match"; //could not find a match
 		}
 
