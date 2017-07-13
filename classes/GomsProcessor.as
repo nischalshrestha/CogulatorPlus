@@ -167,7 +167,7 @@ package classes {
 		// IN PROGRESS
 		private static function removeBranchSteps() {
 			var unevaluatedLines:Array = new Array();
-			trace("unevaluatedLines: "+unevaluatedLines.toString());
+			SyntaxColor.getUnevaluatedSteps(unevaluatedLines, -1);
 			var endifIndex:int = 0;
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				var branchStep: int = SyntaxColor.branches.indexOf(steps[i].operator);
