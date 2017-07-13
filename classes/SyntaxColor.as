@@ -429,21 +429,22 @@ package classes {
 					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
 					return true;
 				}
-				// If it does, check that there is no infinite loop with this goto
+				/* If it does, check that there is no infinite loop with this goto
 				if (goalLine != undefined && goalLine < lineNum && checkInfiniteLoops(goalLine, lineNum)) {
 					errorInLine = true;
 					$.errors[lineNum] = "Infinite loop detected, please make sure loop terminates."
 					return true;
-				}
+				}*/
 				lineLabel = goalLabel;
 			}
 			errorInLine = false;
 			return false;
 		}
 
+		// IN PROGRESS
 		// This checks if there is an infinite loop which happens if we make 20 jumps from
 		// the gotoLine and back. This is only possible when the goal is defined above the
-		// goto line to create the loop.
+		/* goto line to create the loop.
 		private static function checkInfiniteLoops(goalLine: int, gotoLine: int): Boolean {
 			var lines:Array = $.codeTxt.text.split("\r");
 			var jumps:int = 0;
@@ -462,84 +463,151 @@ package classes {
 				jumps++;
 			}
 			return true;
-		}
+		}*/
 
-		// This method will return all the steps required in the goto loop
-		public static function getLoopSteps(goalLine: int, gotoLine: int): Array {
-			var lines:Array = $.codeTxt.text.split("\r");
-			var inlineSteps:Array = new Array();
-			var nextIfLine: int = nextIfLine(lines, goalLine);
-			var breakout:Boolean = false;
-			var iter:int = 0;
+		/* IN PROGRES This method will return all the steps required in the goto loop
+		public static function getLoopSteps(goalLine: int, gotoLine: int, steps: Array): Array {
+			var lines:Array 		= $.codeTxt.text.split("\r");
+			var inlineSteps:Array 	= new Array();
+			var nextIfLine:int 		= nextIfLine(lines, goalLine);
+			var breakout:Boolean 	= false;
+			var iter:int = 			0;
 			// iterate from goalLine
+			goalLine++;
 			while (!breakout) {
-				trace("iter "+iter); // goto was finally excluded from execution
-				for (var i = goalLine+1; i < gotoLine; i++) {
+				// this for is the block of code to execute until we exit goto loop indicated by breakout
+				var gotoFound = 0;
+				for (var i = goalLine; i < gotoLine; i++) {
 					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
 					var tokens: Array = frontTrimmedLine.split(' ');
 					if (tokens[0] == "if") {
-						var normal:Boolean = iter >= 1;
+						trace("if on line: "+i);
+						trace("add step "+frontTrimmedLine);
 						var unevaluatedLines:Array = getUnevaluatedSteps(i);
-						if (unevaluatedLines.indexOf(gotoLine) == -1) { 
-							//trace("don't add unevaluated steps "+unevaluatedLines.toString());
-							//inlineSteps.push(unevaluatedLines);
-						} 
-						else {
-						//	trace("break out "+iter); // goto was finally excluded from execution
-							//trace("add step "+i)
-							breakout = true;
-							//break;
-						}
+						trace("unevaluatedLines "+unevaluatedLines.toString());
 					} else {
-						trace("add step "+i)
+						trace("add step "+frontTrimmedLine);
 						inlineSteps.push(i);
 					}
 				}
+				// before we repeat for second iteration if breakout is false, we need to push the same
+				// block of code again for evaluation so that the create/setstate values are updated for
+				// the consecutive rounds of iterations. 
+				if (!breakout) {
+					var amountToIncrement:int = gotoLine - goalLine;
+					trace("amount to increase "+ amountToIncrement);
+					goalLine = goalLine + amountToIncrement;
+					gotoLine = gotoLine + amountToIncrement;
+					trace("new goalLine "+goalLine);
+					trace("new gotoLine "+gotoLine);
+					for (var i: int = steps.length - 1; i > -1; i--) {
+
+					}
+				}
+
+				break;
 				iter++;
 			}
 			return inlineSteps;
-		}
+		}*/
 
-	// IN PROGRESS; needs to be more general to include unevaluated lines bc of goto as well
-		public static function getUnevaluatedSteps(ifLine: int = 0):Array {
-			var unevaluatedLines: Array = new Array();
-			var lines:Array = $.codeTxt.text.split("\r");
-			var nextIfLine:int = SyntaxColor.nextIfLine(lines, ifLine);
-			while (nextIfLine != -1) {
-				var endIfIndex:int = SyntaxColor.findMatchingEndIf(lines, nextIfLine);
-				var frontTrimmedLine: String = SyntaxColor.clean(lines[nextIfLine]);
-				var tokens: Array = frontTrimmedLine.split(' ');
-				var key: String = tokens[1];
-				var value: String = tokens[2];
-				if (!evaluateIfStatement(nextIfLine, tokens[1], tokens[2])) {
-					for (var i = nextIfLine; i <= endIfIndex; i++) {
-						unevaluatedLines.push(i);
+		// IN PROGRESS; works, but could be cleaned up.
+		public static function getUnevaluatedSteps(unevaluatedLines: Array, ifStackIndex: int = -1):Boolean {
+			if (ifStackIndex == -1) ifStackIndex = $.ifStack.length-1;
+			for (var i = ifStackIndex; i > -1; i--) {
+				var ifBlock:Object = $.ifStack[i];
+				var nextScope:Object = returnNextScope(ifBlock.ifLine, ifBlock.key);
+				var parentIfIndex:int = withinIfBlock(nextScope.lineNo);
+				//if it's not within a block go ahead and evaluate and set the valid attribute on ifBlock
+				if (parentIfIndex == -1) {
+					var evaluation:Boolean = evaluateIfStatement(nextScope.value, ifBlock.value);
+					$.ifStack[i].valid = evaluation;
+					if (!evaluation) {
+						for (var j = ifBlock.ifLine; j <= ifBlock.endIfLine; j++) {
+							if (unevaluatedLines.indexOf(j) == -1) unevaluatedLines.push(j);
+						}
+					} 
+					return evaluation;
+				} else {
+				// if it's within a block we have to evaluate the parent if block recursively
+					var parentEvaluation:Boolean = getUnevaluatedSteps(unevaluatedLines, parentIfIndex);
+					var evaluation:Boolean;
+					if (parentEvaluation) {
+						evaluation = evaluateIfStatement(nextScope.value, $.ifStack[ifStackIndex].value);
+					} 
+					if (!evaluation) {
+						for (var j = ifBlock.ifLine; j <= ifBlock.endIfLine; j++) {
+							if (unevaluatedLines.indexOf(j) == -1) unevaluatedLines.push(j);
+						}
 					}
+					return evaluation;
 				}
-				nextIfLine = SyntaxColor.nextIfLine(lines, ++nextIfLine);
 			}
-			return unevaluatedLines;
+			return false;
 		}
 
+
+		public static function evaluateIfBlock(ifStackIndex: int, nextScopeIndex: int, key: String, value: String): Boolean {
+			var parentIfIndex:int = withinIfBlock( $.ifStack[parentIfIndex].ifLine);
+			if (parentIfIndex == -1) {
+				trace("reached base case");
+				return evaluateIfStatement($.stateTable[key], value);
+			}
+			var parentIfBlock:Object = $.ifStack[parentIfIndex];
+			return evaluateIfBlock(parentIfBlock.line, parentIfIndex, parentIfBlock.key, parentIfBlock.value);
+		}
+
+
+		// Determines whether a line is within an if block or not
+		public static function withinIfBlock(lineNo: int): int {
+			for (var i = $.ifStack.length-1; i > -1; i--) {
+			//	trace("ifstack if "+$.ifStack[i].ifLine + ", endif "+$.ifStack[i].endIfLine);
+				if ($.ifStack[i].ifLine < lineNo && $.ifStack[i].endIfLine > lineNo) {	
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		// Returns the next scope of state variable up from the current lineNo
+		public static function returnNextScope(lineNo: int, ifKey: String): Object {
+			var scopeList:Array = $.stateTable[ifKey];
+			for (var i = scopeList.length-1; i > -1; i--) {
+				// todo add condition that asks whether that lineNo is valid (ie isolated or within a true if)
+				var scopeLine:int = scopeList[i].lineNo;
+				if (scopeLine < lineNo) {
+					return scopeList[i];
+				}
+			}
+			return null;
+		}
+
+		//May not need this once the new solution is tested more thoroughly
 		//Purpose: Checks the truth value of the input against the statetable
 		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
 		//Output: Boolean: if an entry in StateTable matches exactly the key and value
 		//
 		//Hint: if debugging, check that whitespace characters have been trimmed
 		//in both the table and the input
-		public static function evaluateIfStatement(lineNo: int, ifKey: String, ifValue: String): Boolean {
-			trace("evaluating if..");
+		/*public static function evaluateIfStatement(lineNo: int, ifKey: String, ifValue: String): Boolean {
+			//trace("evaluating if..");
 			//input must be in the form "If key value"
 			var scopeList:Array = $.stateTable[ifKey];
 			var tableValueString:String;
-			for (var i = 0; i < scopeList.length; i++) {
-				if (scopeList[i].lineNo < lineNo) {
+			for (var i = scopeList.length-1; i > -1; i--) {
+				// todo add condition that asks whether that lineNo is valid (ie isolated or within a true if)
+				var scopeLine:int = scopeList[i].lineNo;
+				if (scopeLine < lineNo) {
 					tableValueString = scopeList[i].value;
 				} else {
 					break;
 				}
 			}
 			return (tableValueString === ifValue);
+		}*/
+
+		public static function evaluateIfStatement(tableValue: String, ifValue: String): Boolean {
+			return (tableValue === ifValue);
 		}
 
 
@@ -565,14 +633,26 @@ package classes {
 		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
 			var numIfs: int = 0;
 			var numEndIfs: int = 0;
+			var ifIndices:Array = new Array();
 			for (var i = lineNum; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
 				var tokens: Array = frontTrimmedLine.split(' ');
+				trace(frontTrimmedLine);
 				if (tokens[0] == "if") { //Handles nested ifs
+					var ifObject:Object = new Object();
+						ifObject.ifLine = i;
+						ifObject.key = tokens[1];
+						ifObject.value = tokens[2];
+					//trace("pushing if on line "+i);
+					ifIndices.push(ifObject);
 					numIfs++; //for each if found, it must find an additional endif
 				} else if (tokens[0] == "endif") {
 					numEndIfs++;
+					var ifObject = ifIndices.pop();
+					//trace("poping if on line "+ifLine);
 					if (numEndIfs == numIfs) {
+						ifObject.endIfLine = i;
+						$.ifStack.push(ifObject);
 						return i;
 					}
 				}
@@ -587,6 +667,7 @@ package classes {
 		private static function createState(lineNo: int, key: String, value: String): void {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
+			state.key = key;
 			state.value = value;
 			var scopeList:Array = new Array();
 			scopeList.push(state);
@@ -603,6 +684,7 @@ package classes {
 		private static function setState(lineNo: int, line: Array): void {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
+			state.key = line[1];
 			state.value = line[2];
 			if(line.length == 3){
 				//trace("Found straight case.\n")

@@ -80,9 +80,10 @@ package classes {
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
 			for (var key1: Object in $.stateTable) delete $.stateTable[key1]; // clear out all $.stateTable
 			for (var key2: Object in $.goalTable) delete $.goalTable[key2]; // clear out all $.stateTable
+			$.ifStack = [];
 
 			SyntaxColor.typing = false;
-			//trace("state table ")
+			trace("**************");
 			generateStepsArray();
 
 			//trace("generateStepsArray done");
@@ -104,15 +105,14 @@ package classes {
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				endIndex = beginIndex + line.length;
-				
 				if (StringUtils.trim(line) != "") {
 					var syntaxArray:Array = SyntaxColor.solarizeLineNum(lineIndex, beginIndex, endIndex);
 
-					var indentCount: int = syntaxArray[0];
-					var stepOperator: String = syntaxArray[1];
-					var stepLabel: String = trimLabel(syntaxArray[2]);
-					var stepTime: String = syntaxArray[3];
-					var chunkNames: Array = syntaxArray[7];
+					var indentCount:int 	= syntaxArray[0];
+					var stepOperator:String = syntaxArray[1];
+					var stepLabel:String 	= trimLabel(syntaxArray[2]);
+					var stepTime:String 	= syntaxArray[3];
+					var chunkNames:Array 	= syntaxArray[7];
 
 					var methodGoal, methodThread:String;
 					if (stepOperator != "goal" && stepOperator != "also") {
@@ -143,8 +143,14 @@ package classes {
 			}
 			var lines:Array = $.codeTxt.text.split("\r");
 
+			trace("length of ifStack "+$.ifStack.length);
+			for (var i = $.ifStack.length-1; i > -1; i--) {
+				trace("ifStack item "+$.ifStack[i].ifLine + ", " + $.ifStack[i].endIfLine);
+			}
+			
+
 			removeGoalSteps();
-			evaluateGotoSteps();
+			//evaluateGotoSteps();
 			removeBranchSteps();
 			setPrevLineNo();
 			//trace("finish generateStepsArray");
@@ -160,10 +166,9 @@ package classes {
 
 		// IN PROGRESS
 		private static function removeBranchSteps() {
-			var unevaluatedLines:Array = SyntaxColor.getUnevaluatedSteps();
+			var unevaluatedLines:Array = new Array();
 			trace("unevaluatedLines: "+unevaluatedLines.toString());
 			var endifIndex:int = 0;
-			//steps.clear();
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				var branchStep: int = SyntaxColor.branches.indexOf(steps[i].operator);
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
@@ -182,7 +187,7 @@ package classes {
 		// of alerting us to any infinite loops, so we now only deal with valid gotos.
 		// For any remaining gotos, this method evaluates them and inlines the steps by
 		// creating an array that contains inline steps and inserting that to the steps array 
-		// for GanttChart processing
+		/* for GanttChart processing
 		private static function evaluateGotoSteps(): void {
 			for (var i: int = 0; i < steps.length - 1; i++) {
 				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
@@ -201,20 +206,30 @@ package classes {
 			}
 			//trace("resulting steps after inline: "+steps.toString());
 			for (var i: int = 0; i < steps.length - 1; i++) {
-				trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
+		//		trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 			}
 
-		}
+			for (var state: Object in $.stateTable) 
+			{ 
+				var state = $.stateTable[state];
+//				if (state != undefined) {
+					for each (var scope in state) {
+				//    	trace("scope for "+scope.lineNo+": "+scope.value); 
+					}
+//				}
+			} 
+
+		}*/
 
 		// This is companion function to evaluateGotoSteps() to return an Array of the inline
 		// steps necessary for the goto. It handles loops and jumps, where loops happen if the
-		// goal is defined above the goto, and jumps the reverse
+		/* goal is defined above the goto, and jumps the reverse
 		private static function inlineGoalSteps(lines: Array, gotoLine: int, goalLine: int): void {
 			var inlineSteps:Array = new Array();
 			// Handle loop
 			if (goalLine < gotoLine) {
-				inlineSteps = SyntaxColor.getLoopSteps(goalLine, gotoLine);
-				trace("returned inline "+inlineSteps.toString());
+				inlineSteps = SyntaxColor.getLoopSteps(goalLine, gotoLine, steps);
+			//	trace("returned inline "+inlineSteps.toString());
 				var newSteps:Array = new Array();
 				var beginIndex:int = -1;
 				for (var i: int = 0; i < inlineSteps.length; i++){
@@ -231,7 +246,7 @@ package classes {
 				steps.splice(beginIndex, 1); 
 				var newStepIndex:int = 0;
 				// replace the goto with the new steps to inline
-				trace("adding new steps "+beginIndex+" "+ newSteps.length);
+			//	trace("adding new steps "+beginIndex+" "+ newSteps.length);
 				for (var i:int= beginIndex; i < newSteps.length; i++, newStepIndex++) {
 					steps.insertAt(i, newSteps[newStepIndex]);
 				}
@@ -247,9 +262,9 @@ package classes {
 
 					}
 				}
-			}*/
+			}
 			//return inlineSteps;
-		}
+		}*/
 
 		private static function setPrevLineNo() {
 			//steps[0] is set to 0 by default, all others should be updated
