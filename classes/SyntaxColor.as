@@ -512,51 +512,62 @@ package classes {
 		}*/
 
 		// IN PROGRESS; works, but could be cleaned up.
-		public static function getUnevaluatedSteps(unevaluatedLines: Array, ifStackIndex: int = -1):Boolean {
-			if (ifStackIndex == -1) ifStackIndex = $.ifStack.length-1;
-			for (var i = ifStackIndex; i > -1; i--) {
+		public static function getUnevaluatedSteps(ifStackIndex: int = -1): Array {
+			var unevaluatedLines:Array = new Array();
+			for (var i = 0; i < $.ifStack.length; i++) {
 				var ifBlock:Object = $.ifStack[i];
+				// check if the current if block is within another if block
+				var parentIfIndex:int = withinIfBlock(ifBlock.ifLine);
+				var parentIfBlock:Object;
+				if (parentIfIndex != -1) {
+					parentIfBlock = $.ifStack[parentIfIndex];
+				}
+				// if so, check if that parent if block is false
+				if (parentIfBlock != null && !parentIfBlock.truth) {
+					// if parent if block is false, we're done. 
+					// invalidate the if line and add unevaluated lines
+					gatherUnevaluatedLines(i, unevaluatedLines);
+					// continue on to the next if block to evaluate
+					continue;
+				}
+				// if you're here, it means current if block can be evaluated
+				// grab the latest state change before this if block that's valid to check against
 				var nextScope:Object = returnNextScope(ifBlock.ifLine, ifBlock.key);
-				var parentIfIndex:int = withinIfBlock(nextScope.lineNo);
-				//if it's not within a block go ahead and evaluate and set the valid attribute on ifBlock
-				if (parentIfIndex == -1) {
-					var evaluation:Boolean = evaluateIfStatement(nextScope.value, ifBlock.value);
-					$.ifStack[i].valid = evaluation;
-					if (!evaluation) {
-						for (var j = ifBlock.ifLine; j <= ifBlock.endIfLine; j++) {
-							if (unevaluatedLines.indexOf(j) == -1) unevaluatedLines.push(j);
-						}
-					} 
-					return evaluation;
-				} else {
-				// if it's within a block we have to evaluate the parent if block recursively
-					var parentEvaluation:Boolean = getUnevaluatedSteps(unevaluatedLines, parentIfIndex);
-					var evaluation:Boolean;
-					if (parentEvaluation) {
-						evaluation = evaluateIfStatement(nextScope.value, $.ifStack[ifStackIndex].value);
-					} 
-					if (!evaluation) {
-						for (var j = ifBlock.ifLine; j <= ifBlock.endIfLine; j++) {
-							if (unevaluatedLines.indexOf(j) == -1) unevaluatedLines.push(j);
-						}
-					}
-					return evaluation;
+				var evaluation:Boolean = evaluateIfStatement(nextScope.value, ifBlock.value);
+				if (!evaluation) {
+					// if current if block is within a parent if block that's false, add lines
+					gatherUnevaluatedLines(i, unevaluatedLines);
 				}
 			}
-			return false;
+			return unevaluatedLines;
 		}
 
-
-		public static function evaluateIfBlock(ifStackIndex: int, nextScopeIndex: int, key: String, value: String): Boolean {
-			var parentIfIndex:int = withinIfBlock( $.ifStack[parentIfIndex].ifLine);
-			if (parentIfIndex == -1) {
-				trace("reached base case");
-				return evaluateIfStatement($.stateTable[key], value);
+		// Make if block invalid and add all the unevualated lines to the passed in array
+		public static function gatherUnevaluatedLines(ifBlockIndex: int, unevaluatedLines: Array): void {
+			// if block is no longer valid
+			$.ifStack[ifBlockIndex].valid = false; 
+			for (var j = $.ifStack[ifBlockIndex].ifLine; j <= $.ifStack[ifBlockIndex].endIfLine; j++) {
+				if (unevaluatedLines.indexOf(j)) unevaluatedLines.push(j);
 			}
-			var parentIfBlock:Object = $.ifStack[parentIfIndex];
-			return evaluateIfBlock(parentIfBlock.line, parentIfIndex, parentIfBlock.key, parentIfBlock.value);
+			// find any create state, state within this if block and set them to invalid
+			invalidateStateChanges($.ifStack[ifBlockIndex].ifLine);
 		}
 
+		// Invalidates all state changes made inside an if because it was false
+		public static function invalidateStateChanges(ifLine: int): void {
+			for (var key: Object in $.stateTable) {
+				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
+				for (var i = 0; i < scopeList.length; i++) {
+					var parentIfIndex:int = withinIfBlock(scopeList[i].lineNo);
+					if (parentIfIndex != -1) {
+						var ifBlockIndex:int = $.ifStack[parentIfIndex].ifLine;
+						if (ifBlockIndex === ifLine) {
+							$.stateTable[key][i].valid = false;
+						}
+					}
+				}
+			}
+		}
 
 		// Determines whether a line is within an if block or not
 		public static function withinIfBlock(lineNo: int): int {
@@ -573,43 +584,18 @@ package classes {
 		public static function returnNextScope(lineNo: int, ifKey: String): Object {
 			var scopeList:Array = $.stateTable[ifKey];
 			for (var i = scopeList.length-1; i > -1; i--) {
-				// todo add condition that asks whether that lineNo is valid (ie isolated or within a true if)
 				var scopeLine:int = scopeList[i].lineNo;
-				if (scopeLine < lineNo) {
+				if (scopeLine < lineNo && scopeList[i].valid) {
 					return scopeList[i];
 				}
 			}
 			return null;
 		}
 
-		//May not need this once the new solution is tested more thoroughly
-		//Purpose: Checks the truth value of the input against the statetable
-		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
-		//Output: Boolean: if an entry in StateTable matches exactly the key and value
-		//
-		//Hint: if debugging, check that whitespace characters have been trimmed
-		//in both the table and the input
-		/*public static function evaluateIfStatement(lineNo: int, ifKey: String, ifValue: String): Boolean {
-			//trace("evaluating if..");
-			//input must be in the form "If key value"
-			var scopeList:Array = $.stateTable[ifKey];
-			var tableValueString:String;
-			for (var i = scopeList.length-1; i > -1; i--) {
-				// todo add condition that asks whether that lineNo is valid (ie isolated or within a true if)
-				var scopeLine:int = scopeList[i].lineNo;
-				if (scopeLine < lineNo) {
-					tableValueString = scopeList[i].value;
-				} else {
-					break;
-				}
-			}
-			return (tableValueString === ifValue);
-		}*/
-
+		// Returns wether or not the table value matches the given value
 		public static function evaluateIfStatement(tableValue: String, ifValue: String): Boolean {
 			return (tableValue === ifValue);
 		}
-
 
 		//Purpose: Finds next value of lineCounter. 
 		//Input: Int lineNum: lineNumber of Current If-statement
@@ -643,6 +629,7 @@ package classes {
 						ifObject.ifLine = i;
 						ifObject.key = tokens[1];
 						ifObject.value = tokens[2];
+						ifObject.truth = true;
 					//trace("pushing if on line "+i);
 					ifIndices.push(ifObject);
 					numIfs++; //for each if found, it must find an additional endif
@@ -669,6 +656,7 @@ package classes {
 			state.lineNo = lineNo;
 			state.key = key;
 			state.value = value;
+			state.valid = true;
 			var scopeList:Array = new Array();
 			scopeList.push(state);
 			$.stateTable[key] = scopeList;
@@ -686,6 +674,7 @@ package classes {
 			state.lineNo = lineNo;
 			state.key = line[1];
 			state.value = line[2];
+			state.valid = true;
 			if(line.length == 3){
 				//trace("Found straight case.\n")
 				// grab the scope list associated with the state and push the new scope in
