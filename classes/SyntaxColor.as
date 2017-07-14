@@ -82,7 +82,6 @@ package classes {
 			}
 		}
 		
-		
 		public static function solarizeSelectedLine():Boolean {
 			typing = true;
 			//get line number based on caret position
@@ -103,39 +102,6 @@ package classes {
 			
 			return (solarizeLineNum(lineNumber, begindex, endex, chunkNamedInError)[6]);
 		}
-		
-		//Purpose:  Color the line specified.  Created for Cog+ functionality
-		//Input: line number to be colorized.
-		//Output: none.
-		//SideEffect: The line should be colored.  Other side effects are TBD.
-		public static function solarizeLine(lineNumber:int) {
-			//get line number based on caret position
-			var begindex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);
-			var endex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNumber);
-			
-			//chunkErrors are a special case because they can't be identified until after the GomsProcessor initiates WM modeling
-			//chunkErrors are identified in WorkingMemory.as, which calls a custom function here (solarizeChunkAtLineNum) to color the errors
-			var chunkNamedInError:String = "";
-			var errMessage = $.errors[lineNumber];
-			if (errMessage != undefined) if (errMessage.indexOf("memory") > -1) {
-				var leftAngleIndex = errMessage.indexOf("<");
-				var rightAngleIndex = errMessage.indexOf(">");
-				chunkNamedInError = errMessage.substring(leftAngleIndex, rightAngleIndex);	
-			}	
-			
-			solarizeLineNum(lineNumber, begindex, endex, chunkNamedInError)[6];
-		}
-
-
-		public static function ErrorColorLine(lineNumber:int){
-			
-			//get line number based on caret position
-			var beginIndex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);
-			var endIndex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNumber);
-			
-			$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
-		}
-		
 			
 		//0: Number of Indents
 		//1: Operator
@@ -145,7 +111,6 @@ package classes {
 		//5: Error in line boolean
 		//6: Error fixed in line boolean - the one non-Goms processor calls are looking for
 		//7: Array of chunk names "<>"
-		
 		public static function solarizeLineNum(lineNum:int, beginIndex:int = -1, endIndex:int = -1, chunkNamedInError:String = ""):Array {
 			time = "";
 			chunkNames.length = 0;
@@ -304,23 +269,6 @@ package classes {
 					} else {
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
-				/*
-					//Checks for infinite loops and syntax errors
-					//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
-					if (jumps > 1 || hasError(tokens, codeLines)) {
-						SyntaxColor.ErrorColorLine(lineIndex);
-					} else {
-						//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-						var goalTokens = frontTrimmedLine.split("Goal: ");
-						var goalName = goalTokens[1];
-						goalIndex = indexGoalLines(codeLines);
-						if(goalIndex[goalName] !== undefined){
-							lineIndex = goalIndex[goalName] - 1;
-							jumps++;
-						} else {
-							SyntaxColor.ErrorColorLine(lineIndex);
-						}
-					}*/
 					break;
 			}
 
@@ -332,17 +280,17 @@ package classes {
 			return item != "";
 		}
 
-		//Purpose:  To determine if there is a syntax error in added operators
-		//Input: front trimmed line tokenized using space as dilimiter. 
-		//		 Operator should always be first token
-		//       Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
-		//		 Example:  GoTo,Goal:,hands,and,feet
-		//Output: Boolean 
-		//		  True if hasError.
-		//		  False if syntax is correct
+		// Purpose:  To determine if there is a syntax error in added operators
+		// Input: front trimmed line tokenized using space as dilimiter. 
+		//		  Operator should always be first token
+		//        Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
+		//		  Example:  GoTo,Goal:,hands,and,feet
+		// Output: Boolean 
+		//		   True if hasError.
+		//		   False if syntax is correct
 		//
-		//Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
-		//		 GenerateStepsArray when GoTo is processed.
+		// Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
+		//		  GenerateStepsArray when GoTo is processed.
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
@@ -624,6 +572,7 @@ package classes {
 			return (tableValue === ifValue);
 		}
 
+		// We might be able to remove this for checking infinite loops since we have $.ifStack
 		// Purpose: Finds next value of lineCounter. 
 		// Input: Array lines, the lines for the whole text in the editor
 		//		  int lineNum, lineNumber of Current If-statement
@@ -777,12 +726,6 @@ package classes {
 			}
 		}
 		
-		// 5 different errors can be detected with an operator:
-		// "Couldn't find an operator."
-		// "I was expecting a number after the left parenthesis."
-		// "The modifier can be 'seconds', 'milliseconds', or 'ms'"
-		// "I found a right paren before the left paren"
-		// "I was expecting a right parenthesis."
 		private static function solarizeOperatorLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int, chunkNamedInError:String):void {
 			threadLabel = ""; //setting for the return array			
 			
@@ -922,11 +865,10 @@ package classes {
 			return line;
 		}
 
-		//Purpose: removes all colons from a string
-		//to make it be optional for parsing
-		//Input: String: operator string
+		// Purpose: removes all colons from a string to make it be optional for parsing
+		// Input: String: operator string
 		//	Example: "CreateState: goal_name value"
-		//Output: String: trimmed operator 
+		//  Output: String: trimmed operator 
 		//	Example: "CreateState goal_name value"
 		public static function trimColon(string: String): String {
 			var trimmed:String = string;
