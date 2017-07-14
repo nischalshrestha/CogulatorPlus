@@ -78,21 +78,14 @@ package classes {
 
 
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
-			for (var key1: Object in $.stateTable) delete $.stateTable[key1]; // clear out all $.stateTable
-			for (var key2: Object in $.goalTable) delete $.goalTable[key2]; // clear out all $.stateTable
-			$.ifStack = [];
+			for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
+			for (var key: Object in $.goalTable) delete $.goalTable[key]; // clear out all $.goalTable
+			$.ifStack = []; // clear out the $.ifStack
 
-			SyntaxColor.typing = false;
-			trace("**************");
+			SyntaxColor.typing = false; // this lets SyntaxColor know that the model was refreshed
 			generateStepsArray();
 
-			//trace("generateStepsArray done");
-
-
-			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
-
-		//	trace("processStepsArray done");
-			
+			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps			
 
 			return (new Array(maxEndTime, thrdOrdr, threadAvailability, intersteps, allmthds, cntrlmthds));
 		}
@@ -143,17 +136,10 @@ package classes {
 			}
 			var lines:Array = $.codeTxt.text.split("\r");
 
-			trace("length of ifStack "+$.ifStack.length);
-			for (var i = $.ifStack.length-1; i > -1; i--) {
-				trace("ifStack item "+$.ifStack[i].ifLine + ", " + $.ifStack[i].endIfLine);
-			}
-			
-
 			removeGoalSteps();
 			//evaluateGotoSteps();
 			removeBranchSteps();
 			setPrevLineNo();
-			//trace("finish generateStepsArray");
 
 		}
 
@@ -164,16 +150,17 @@ package classes {
 
 		}
 
-		// IN PROGRESS
+		// Purpose: Removes all steps that are within if blocks that were false, as well as the
+		//			branch operator steps: If, CreateState, SetState, Endif, Goto.
+		// Input: none
+		// Output: none
+		// SideEffect: removes items from the steps Array as needed
 		private static function removeBranchSteps() {
 			var unevaluatedLines:Array = SyntaxColor.getUnevaluatedSteps();
-			trace("resulting array: "+unevaluatedLines.toString());
 			var endifIndex:int = 0;
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				var branchStep: int = SyntaxColor.branches.indexOf(steps[i].operator);
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
-					// if you have an If, make sure to delete steps within if false
-					//trace("operator to remove "+steps[i].operator +", lineNo "+steps[i].lineNo);
 					steps.splice(i, 1);	
 				} else if (branchStep != -1) {
 					steps.splice(i, 1);	
@@ -359,9 +346,6 @@ package classes {
 
 			//store the results for the next go round
 			threadAvailability[thread] = new TimeObject(startTime, endTime);
-
-			trace("start time "+startTime + " "+step.label);
-			//trace("end time "+endTime + " "+step.label);
 
 
 			var reslt: Array = new Array();

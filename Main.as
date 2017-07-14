@@ -111,7 +111,7 @@ package {
 		
 		//    - generate models sidebar - 
 		var modelsSideBar:ModelsSidebar;
-		var  modelsScrollBar:CustomScrollBar;
+		var modelsScrollBar:CustomScrollBar;
 		
 		
 		var defaultTimeLineDraggerX:Number;

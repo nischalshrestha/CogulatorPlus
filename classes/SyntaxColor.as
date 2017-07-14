@@ -511,8 +511,11 @@ package classes {
 			return inlineSteps;
 		}*/
 
-		// IN PROGRESS; works, but could be cleaned up.
-		public static function getUnevaluatedSteps(ifStackIndex: int = -1): Array {
+		// Purpose: Evaluate all if blocks in $.ifStack and return an Array of line numbers to remove
+		// Input: none
+		// Output: Array holding all the line numbers for steps the GomsProcessor will remove
+		// SideEffect: changes truth value of if blocks and possibly valid attribute of state objects
+		public static function getUnevaluatedSteps(): Array {
 			var unevaluatedLines:Array = new Array();
 			for (var i = 0; i < $.ifStack.length; i++) {
 				var ifBlock:Object = $.ifStack[i];
@@ -542,7 +545,12 @@ package classes {
 			return unevaluatedLines;
 		}
 
-		// Make if block invalid and add all the unevualated lines to the passed in array
+		// Purpose: Make if block invalid and add all the unevualated lines to the passed in array
+		// Input: int ifBlockIndex, the index of the if block in $.ifStack
+		//		  Array unevaluatedLines, an array to hold all unevaluated line numbers
+		// Output: none
+		// SideEffect: adds lines to passed in array and can change the valid attribute of the state 
+		// 			   objects within the if block
 		public static function gatherUnevaluatedLines(ifBlockIndex: int, unevaluatedLines: Array): void {
 			// if block is no longer valid
 			$.ifStack[ifBlockIndex].valid = false; 
@@ -553,7 +561,10 @@ package classes {
 			invalidateStateChanges($.ifStack[ifBlockIndex].ifLine);
 		}
 
-		// Invalidates all state changes made inside an if because it was false
+		// Purpose: Invalidates all state changes made inside an if because it was false
+		// Input: int ifLine, the line number of the if line
+		// Output: none
+		// SideEffect: can change the valid attribute of the state object
 		public static function invalidateStateChanges(ifLine: int): void {
 			for (var key: Object in $.stateTable) {
 				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
@@ -569,7 +580,11 @@ package classes {
 			}
 		}
 
-		// Determines whether a line is within an if block or not
+		// Purpose: Determines whether a line is within an if block or not
+		// Input: int lineNo, the line number in question
+		// Output: index of the if block in $.ifStack if line is within an if block
+		//		   -1 if line is not within an if block
+		// SideEffect: none
 		public static function withinIfBlock(lineNo: int): int {
 			for (var i = $.ifStack.length-1; i > -1; i--) {
 			//	trace("ifstack if "+$.ifStack[i].ifLine + ", endif "+$.ifStack[i].endIfLine);
@@ -580,7 +595,15 @@ package classes {
 			return -1;
 		}
 
-		// Returns the next scope of state variable up from the current lineNo
+		// Purpose: Returns the next valid state change object, representing a createstate/setstate declaration
+		//			This method will start looking for the correct createstate/setstate line above the current
+		//		    if condition, so that we test the condition against the latest createstate or setstate.
+		//			It will also check whether it is the right createstate/setstate, e.g. not inside a false if
+		//			via checking the valid attribute of the state object.
+		// Input: int lineNo, line number of the if condition
+		//		  String ifKey, the state the if condition is testing
+		// Output: the correct if object if found, null otherwise
+		// SideEffect: none
 		public static function returnNextScope(lineNo: int, ifKey: String): Object {
 			var scopeList:Array = $.stateTable[ifKey];
 			for (var i = scopeList.length-1; i > -1; i--) {
@@ -592,14 +615,20 @@ package classes {
 			return null;
 		}
 
-		// Returns wether or not the table value matches the given value
+		// Purpose: Evaluates a given table value for a state and an if condition value
+		// Input: String tableValue, representing the value of the state in the $.stateTable
+		//		  String ifValue, the value the if condition is testing
+		// Output: true if condition is true, false otherwise
+		// SideEffect: none
 		public static function evaluateIfStatement(tableValue: String, ifValue: String): Boolean {
 			return (tableValue === ifValue);
 		}
 
-		//Purpose: Finds next value of lineCounter. 
-		//Input: Int lineNum: lineNumber of Current If-statement
-		//Output: int: the lineNumber of the next statement to be processed
+		// Purpose: Finds next value of lineCounter. 
+		// Input: Array lines, the lines for the whole text in the editor
+		//		  int lineNum, lineNumber of Current If-statement
+		// Output: int: the lineNumber of the next statement to be processed
+		// SideEffect: none
 		public static function nextIfLine(lines: Array, lineNum: int):int {
 			for (var i = lineNum; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
@@ -611,11 +640,17 @@ package classes {
 			return -1;
 		}
 
-		//Purpose: Returns the lineNumber of the matching EndIf
-		//Input: Int lineNum, the lineNumber of the current if statement
-		//Output: int of the matching EndIf
-		//		  if no ENDIF is found, returns end of program
-		//Notes: Handles possible nested ifs
+		// Purpose: Returns the lineNumber of the matching EndIf
+		// Input: Array lines, representing all of the lines of the model
+		//		  int lineNum, the lineNumber of the current if statement
+		// Output: int of the matching EndIf
+		//		   if no ENDIF is found, returns entire length of lines
+		// Notes: Handles possible nested ifs
+		// SideEffect: creates an If Object that represents an if block with:
+		//			   ifLine, the line at which it is declared
+		//			   key, the key it is testing
+		//			   value, the value it is testing key against
+		//			   truth, whether it is true or false (true by default initially)
 		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
 			var numIfs: int = 0;
 			var numEndIfs: int = 0;
@@ -647,10 +682,13 @@ package classes {
 			return lines.length;
 		}
 		
-		//Purpose: Creates new state in the stateTable, all values are represented as strings.
-		//Input: String key, String value (target1, visited)
-		//Output: none
-		//	SideEffect:  An new entry in global stateTable is added
+		// Purpose: Creates a new state in the stateTable, where the value is an Array.
+		// The Array holds a state Object that represents the declartion of that state
+		// with its line number, key (statename), value and whether or not it is valid for
+		// if conditions to check against.
+		// Input:  String key, String value (target1, visited)
+		// Output: none
+		// SideEffect:  An new entry in global stateTable is added
 		private static function createState(lineNo: int, key: String, value: String): void {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
@@ -662,13 +700,15 @@ package classes {
 			$.stateTable[key] = scopeList;
 		}
 
-		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
-		//Input: Array:String line		
-		//(Form) String key, String value (target1, visited)  OR
-		//		 String key, String value (target1, visited), String probability (between 0 and 1) 
-
-		//Output: none
-		//	SideEffect:  An existing entry in global stateTable is changed
+		// Purpose: Changes an existing state in the stateTable by inserting a new state Object.
+		// The new state Object represents the state declaration of that state with its line number,
+		// key (statename), value and whether or not it is valid for if conditions to check against.
+		// Input: lineNo of the SetState and a line Array that represents the current line in text in tokens
+		// Two possible forms of the line:	
+		// (Form) String if, String key, String value (target1, visited)  OR
+		//		  String if, String key, String value (target1, visited), String probability (between 0 and 1) 
+		// Output: none
+		// SideEffect: An existing entry in global stateTable is changed
 		private static function setState(lineNo: int, line: Array): void {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
@@ -692,20 +732,18 @@ package classes {
 		}
 
 
-		//Purpose: finds the lineNumbers of all goals in the program
-		//Input: None
-		//Output: Dictionary of goals and lines in the form: 
-		//		key: goal_name
-		//		value: lineNumber
-		//Notes: Does not enforce scope
-		//		 Goal line assumed to be in the form "...Goal: goal_name"
+		// Purpose: finds the lineNumbers of all goals in the program and stores them in the $.goalTable
+		// Input: Array of lines representing the text on the editor
+		// Output: none
+		// SideEffect: makes entries of all the goals in the model in $.goalTable
+		// Notes: Does not enforce scope
 		private static function indexGoalLines(lines: Array): void {
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
 				var operator: String = tokens[0].toLowerCase();
 				if (operator == "goal") {
-					//Goal line assumed to be in the form "goal goal_name"
+					// Goal line assumed to be in the form "goal goal_name"
 					var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
 					$.goalTable[goalName] = i;
 				}
@@ -859,6 +897,11 @@ package classes {
 		
 		}
 
+		// Purpose: removes unnecessary characters (see trim), indents, and colons
+		// Input: String: raw line 
+		//	 	  Example: "...CreateState goal_name value"
+		// Output: String: trimmed line 
+		// Example: "CreateState goal_name value"
 		public static function clean(s: String): String {
 			return trimColon(trimIndents(trim(s))).toLowerCase();
 		}
@@ -867,11 +910,11 @@ package classes {
 			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
 		}
 
-		//Purpose: removes spaces and periods from front of line so that we can identify the operator
-		//Input: String: raw line 
-		//	Example: "...CreateState goal_name value"
-		//Output: String: trimmed line 
-		//	Example: "CreateState goal_name value"
+		// Purpose: removes spaces and periods from front of line so that we can identify the operator
+		// Input: String: raw line 
+		//		  Example: "...CreateState goal_name value"
+		// Output: String: trimmed line 
+		//		   Example: "CreateState goal_name value"
 		public static function trimIndents(line: String): String {
 			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
 				line = line.substr(1);
