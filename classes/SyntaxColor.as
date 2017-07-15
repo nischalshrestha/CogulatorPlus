@@ -370,6 +370,11 @@ package classes {
 				}
 				// Index all goals defined and check if goal exists
 				indexGoalLines(lines);
+				for (var key: Object in $.goalTable) {
+					var goalObject:Object = $.goalTable[key];
+					trace("indexed goal: "+key+" "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable	
+				}
+
 				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
 				var goalLine = $.goalTable[goalLabel];
 				if (goalLine == undefined && !typing) {
@@ -458,6 +463,10 @@ package classes {
 			}
 			return inlineSteps;
 		}*/
+
+		/*public static function getInlineSteps(): Array {
+
+			}*/
 
 		// Purpose: Evaluate all if blocks in $.ifStack and return an Array of line numbers to remove
 		// Input: none
@@ -682,11 +691,13 @@ package classes {
 
 
 		// Purpose: finds the lineNumbers of all goals in the program and stores them in the $.goalTable
+		// 			The value is an Object with attributes lineNo, start (start of actual steps), end
 		// Input: Array of lines representing the text on the editor
 		// Output: none
 		// SideEffect: makes entries of all the goals in the model in $.goalTable
 		// Notes: Does not enforce scope
 		private static function indexGoalLines(lines: Array): void {
+			var previousGoal:String = "";
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
@@ -694,7 +705,16 @@ package classes {
 				if (operator == "goal") {
 					// Goal line assumed to be in the form "goal goal_name"
 					var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
-					$.goalTable[goalName] = i;
+					var goalObject = new Object();
+					goalObject.lineNo = i;
+					goalObject.start = i+1;
+					goalObject.end = lines.length-1;
+					// Set the previous goal's end line for its scope
+					if (previousGoal != "") {
+						$.goalTable[previousGoal].end = goalObject.lineNo;
+					}
+					$.goalTable[goalName] = goalObject;
+					previousGoal = goalName;
 				}
 			}
 		}
