@@ -136,8 +136,8 @@ package classes {
 			}
 			var lines:Array = $.codeTxt.text.split("\r");
 
+			evaluateGotoSteps();
 			removeGoalSteps();
-			//evaluateGotoSteps();
 			removeBranchSteps();
 			setPrevLineNo();
 
@@ -174,84 +174,18 @@ package classes {
 		// of alerting us to any infinite loops, so we now only deal with valid gotos.
 		// For any remaining gotos, this method evaluates them and inlines the steps by
 		// creating an array that contains inline steps and inserting that to the steps array 
-		/* for GanttChart processing
+		// for GanttChart processing
 		private static function evaluateGotoSteps(): void {
 			for (var i: int = 0; i < steps.length - 1; i++) {
 				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
-			}
-			var lines: Array = $.codeTxt.text.split("\r");
-			var inlineSteps: Array = new Array();
-			for (var i: int = steps.length - 1; i > -1; i--) {
 				var step:Step = steps[i];
 				if (step.operator == "goto") {
-					var gotoLine:int = step.lineNo;
-					var goalLabel:String = step.label;
-					var goalLine = $.goalTable[goalLabel];
-					// inline the steps for the goal we're jumping too
-					inlineGoalSteps(lines, gotoLine, goalLine);
+					var inlineSteps:Array = SyntaxColor.getInlineSteps(step.lineNo, $.goalTable[step.label], steps);
+					trace("total number of inlines "+inlineSteps.length);
 				}
 			}
-			//trace("resulting steps after inline: "+steps.toString());
-			for (var i: int = 0; i < steps.length - 1; i++) {
-		//		trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
-			}
 
-			for (var state: Object in $.stateTable) 
-			{ 
-				var state = $.stateTable[state];
-//				if (state != undefined) {
-					for each (var scope in state) {
-				//    	trace("scope for "+scope.lineNo+": "+scope.value); 
-					}
-//				}
-			} 
-
-		}*/
-
-		// This is companion function to evaluateGotoSteps() to return an Array of the inline
-		// steps necessary for the goto. It handles loops and jumps, where loops happen if the
-		/* goal is defined above the goto, and jumps the reverse
-		private static function inlineGoalSteps(lines: Array, gotoLine: int, goalLine: int): void {
-			var inlineSteps:Array = new Array();
-			// Handle loop
-			if (goalLine < gotoLine) {
-				inlineSteps = SyntaxColor.getLoopSteps(goalLine, gotoLine, steps);
-			//	trace("returned inline "+inlineSteps.toString());
-				var newSteps:Array = new Array();
-				var beginIndex:int = -1;
-				for (var i: int = 0; i < inlineSteps.length; i++){
-					for (var j: int = 0; j < steps.length; j++) {
-						if (steps[j].lineNo == inlineSteps[i]) {
-							newSteps.push(steps[j]);
-							if (beginIndex == -1) {
-								beginIndex = j;
-							}
-						}
-					}
-				}
-				// remove the goto
-				steps.splice(beginIndex, 1); 
-				var newStepIndex:int = 0;
-				// replace the goto with the new steps to inline
-			//	trace("adding new steps "+beginIndex+" "+ newSteps.length);
-				for (var i:int= beginIndex; i < newSteps.length; i++, newStepIndex++) {
-					steps.insertAt(i, newSteps[newStepIndex]);
-				}
-
-				//steps.splice(beginIndex+newSteps.length, steps.length);
-			} 
-			/*else { // handle jump forward
-				for (var i: int = steps.length - 1; i > -1; i--) {
-					var step:Step = steps[i];
-					trace("goalLabel "+step.operator);
-					if (step.lineNo > gotoLine && step.lineNo < ) {
-						// inline the steps for the goal we're jumping too
-
-					}
-				}
-			}
-			//return inlineSteps;
-		}*/
+		}
 
 		private static function setPrevLineNo() {
 			//steps[0] is set to 0 by default, all others should be updated

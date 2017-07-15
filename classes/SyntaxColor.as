@@ -27,7 +27,6 @@ package classes {
 	import classes.WrappedLineUtils;
 	import classes.SolarizedPalette;
 	import com.inruntime.utils.*;
-
 	
 	public class SyntaxColor {
 		private static var $:Global = Global.getInstance();
@@ -370,10 +369,10 @@ package classes {
 				}
 				// Index all goals defined and check if goal exists
 				indexGoalLines(lines);
-				for (var key: Object in $.goalTable) {
+				/*for (var key: Object in $.goalTable) {
 					var goalObject:Object = $.goalTable[key];
 					trace("indexed goal: "+key+" "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable	
-				}
+				}*/
 
 				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
 				var goalLine = $.goalTable[goalLabel];
@@ -394,7 +393,7 @@ package classes {
 			return false;
 		}
 
-		// IN PROGRESS
+		// IN PROGRESS todo refactor this once the inlining is working
 		// This checks if there is an infinite loop which happens if we make 20 jumps from
 		// the gotoLine and back. This is only possible when the goal is defined above the
 		/* goto line to create the loop.
@@ -418,61 +417,63 @@ package classes {
 			return true;
 		}*/
 
-		/* IN PROGRESS This method will return all the steps required in the goto loop
-		public static function getLoopSteps(goalLine: int, gotoLine: int, steps: Array): Array {
-			var lines:Array 		= $.codeTxt.text.split("\r");
-			var inlineSteps:Array 	= new Array();
-			var nextIfLine:int 		= nextIfLine(lines, goalLine);
-			var breakout:Boolean 	= false;
-			var iter:int = 			0;
-			// iterate from goalLine
-			goalLine++;
-			while (!breakout) {
-				// this for is the block of code to execute until we exit goto loop indicated by breakout
-				var gotoFound = 0;
-				for (var i = goalLine; i < gotoLine; i++) {
-					var frontTrimmedLine: String = SyntaxColor.clean(lines[i]);
-					var tokens: Array = frontTrimmedLine.split(' ');
-					if (tokens[0] == "if") {
-						trace("if on line: "+i);
-						trace("add step "+frontTrimmedLine);
-						var unevaluatedLines:Array = getUnevaluatedSteps(i);
-						trace("unevaluatedLines "+unevaluatedLines.toString());
-					} else {
-						trace("add step "+frontTrimmedLine);
-						inlineSteps.push(i);
-					}
-				}
-				// before we repeat for second iteration if breakout is false, we need to push the same
-				// block of code again for evaluation so that the create/setstate values are updated for
-				// the consecutive rounds of iterations. 
-				if (!breakout) {
-					var amountToIncrement:int = gotoLine - goalLine;
-					trace("amount to increase "+ amountToIncrement);
-					goalLine = goalLine + amountToIncrement;
-					gotoLine = gotoLine + amountToIncrement;
-					trace("new goalLine "+goalLine);
-					trace("new gotoLine "+gotoLine);
-					for (var i: int = steps.length - 1; i > -1; i--) {
-
-					}
-				}
-
-				break;
-				iter++;
+		public static function getInlineSteps(gotoLine: int, goalObject: Object, steps: Array): Array {
+			trace("indexed goal in getInlineSteps: "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable
+			var goalSteps:Array = steps.slice(goalObject.lineNo, gotoLine+1);
+			var newGoalSteps:Array = new Array();
+			var offset:int = gotoLine - goalObject.start;
+			trace("offset "+offset);
+			for (var i: int = 0; i < goalSteps.length; i++) {
+				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
+				var step:Step = goalSteps[i];
+				var newLineNo:int = step.lineNo + offset;
+				var newStep:Step = step.clone();
+				newStep.lineNo = newLineNo;
+				newGoalSteps.push(newStep);
 			}
-			return inlineSteps;
-		}*/
+							
+			addInlineStateChanges(goalSteps, offset);
+			return goalSteps;
+		}
 
-		/*public static function getInlineSteps(): Array {
+		// updates the state table with new inlined steps for goto loops
+		// takes in the relevant goal steps and an offset to update lineNos for new entries
+		public static function addInlineStateChanges(goalSteps: Array, offset: int): void {
+			var startInlineIndex:int = -1;
+			var inlineIfStack:Array = new Array();
+			for (var i = 0; i < goalSteps.length; i++) {
+				var step:Step = goalSteps[i];
+				// Add 'new' if blocks with updated if and endif lines and reset truth
+				if (step.operator == "if") {
+					var ifBlock:Object = findIfBlock(step.lineNo);
+					var newIfBlock:Object = new Object();
+					newIfBlock.ifLine = ifBlock.ifLine + offset;
+					newIfBlock.key = ifBlock.key;
+					newIfBlock.value = ifBlock.value;
+					newIfBlock.truth = true;
+					newIfBlock.endIfLine = ifBlock.endIfLine + offset;
+					$.ifStack.push(newIfBlock);
+					if (startInlineIndex == -1) startInlineIndex = i;
+				}
+				// todo handle createstate/setstate as well
+			}
+		}
 
-			}*/
+		// Returns the ifBlock given the ifLine
+		public static function findIfBlock(ifLine: int): Object {
+			for (var i = 0; i < $.ifStack.length; i++) {
+				if ($.ifStack[i].ifLine == ifLine) {
+					return $.ifStack[i];
+				}
+			}
+			return null;
+		}
 
 		// Purpose: Evaluate all if blocks in $.ifStack and return an Array of line numbers to remove
 		// Input: none
 		// Output: Array holding all the line numbers for steps the GomsProcessor will remove
 		// SideEffect: changes truth value of if blocks and possibly valid attribute of state objects
-		public static function getUnevaluatedSteps(): Array {
+		public static function getUnevaluatedSteps(start: int = -1, end: int = -1): Array {
 			var unevaluatedLines:Array = new Array();
 			for (var i = 0; i < $.ifStack.length; i++) {
 				var ifBlock:Object = $.ifStack[i];

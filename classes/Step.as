@@ -49,6 +49,21 @@ package  classes {
 			}
 		}
 
+		public function clone(): Step {
+			return new Step(
+				indentCount,
+				goal,
+				thred,
+				operator,
+				time,
+				resource,
+				label,
+				lineNo,
+				prevLineNo,
+				chunkNames
+				);
+		}
+
 	}
 	
 }
