@@ -233,7 +233,7 @@ package classes {
 					if (hasError(tokens, lineNum)) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
-						createState(lineNum, tokens[1], tokens[2]);
+						createState(lineNum, clean(tokens[1]), clean(tokens[2]));
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
 					break;
@@ -413,7 +413,7 @@ package classes {
 			return true;
 		}*/
 
-		/* IN PROGRES This method will return all the steps required in the goto loop
+		/* IN PROGRESS This method will return all the steps required in the goto loop
 		public static function getLoopSteps(goalLine: int, gotoLine: int, steps: Array): Array {
 			var lines:Array 		= $.codeTxt.text.split("\r");
 			var inlineSteps:Array 	= new Array();
@@ -501,7 +501,7 @@ package classes {
 		// 			   objects within the if block
 		public static function gatherUnevaluatedLines(ifBlockIndex: int, unevaluatedLines: Array): void {
 			// if block is no longer valid
-			$.ifStack[ifBlockIndex].valid = false; 
+			$.ifStack[ifBlockIndex].truth = false; 
 			for (var j = $.ifStack[ifBlockIndex].ifLine; j <= $.ifStack[ifBlockIndex].endIfLine; j++) {
 				if (unevaluatedLines.indexOf(j)) unevaluatedLines.push(j);
 			}
@@ -661,8 +661,8 @@ package classes {
 		private static function setState(lineNo: int, line: Array): void {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
-			state.key = line[1];
-			state.value = line[2];
+			state.key = clean(line[1]);
+			state.value = clean(line[2]);
 			state.valid = true;
 			if(line.length == 3){
 				//trace("Found straight case.\n")
