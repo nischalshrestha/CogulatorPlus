@@ -293,7 +293,6 @@ package classes {
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
-			trace("token length "+tokens.toString());
 			var lines:Array = $.codeTxt.text.split("\r");
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
@@ -302,9 +301,8 @@ package classes {
 				if (tokens.length != 3) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 2 arguments."
-										trace("ahhh");
 					return true;
-				} else if ($.stateTable[clean(tokens[1])] !== undefined && !typing) {
+				} else if ($.stateTable[tokens[1]] !== undefined && !typing) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
 					return true;
@@ -314,7 +312,7 @@ package classes {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 2 or 3 arguments."
 					return true;
-				} else if($.stateTable[clean(tokens[1])] == undefined){
+				} else if($.stateTable[tokens[1]] == undefined){
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
 					return true;
@@ -364,7 +362,7 @@ package classes {
 					return true;
 				}
 				if (clean(tokens.slice(0, 2).join(" ").toLowerCase()) != "goto goal") {
-					trace("cleaned up goto "+clean(tokens.slice(0, 2).join(" ").toLowerCase()));
+					//trace("cleaned up goto "+clean(tokens.slice(0, 2).join(" ").toLowerCase()));
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting something like 'goto goal'."
 					return true;
@@ -420,40 +418,56 @@ package classes {
 			return true;
 		}*/
 
-		public static function getInlineSteps(gotoLine: int, goalObject: Object, steps: Array): Array {
-			//trace("indexed goal in getInlineSteps: "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable
-			// Grab the relevant goals
-			var goalSteps:Array = steps.slice(goalObject.lineNo, gotoLine+1);
-			var newGoalSteps:Array = new Array();
-			var offset:int = gotoLine - goalObject.start;
-			addInlineStateChanges(goalSteps, offset);
-			printIfBlocks();
-			printStateTable();
-			for (var i: int = 0; i < goalSteps.length; i++) {
-				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
-				var step:Step = goalSteps[i];
-				var newLineNo:int = step.lineNo + offset;
-				var newStep:Step = step.clone();
-				newStep.lineNo = newLineNo;
-				newGoalSteps.push(newStep);
+		public static function getInlineSteps(gotoLine: int, goalLine: int, goalObject: Object, steps: Array): Array {
+			var withinIfIndex:int = withinIfBlock(gotoLine);
+			if (withinIfIndex != -1 && !$.ifStack[withinIfIndex].truth) {
+				return [];
 			}
-			// Evaluate the new goal steps to see if further iterations are required
-			var unevaluatedLines:Array = getUnevaluatedSteps(goalObject.start+offset, (gotoLine+offset));
-			/*
-			trace("unevaluatedInlineSteps "+unevaluatedLines);
-			for (var i = 0; i < unevaluatedLines.length; i++) {
-				trace("unevualated inline "+unevaluatedLines[i]);
-			}*/
-			return goalSteps;
+			//trace("indexed goal in getInlineSteps: "+goalLine + " " + gotoLine); // clear out all $.goalTable
+			// Grab the relevant goals
+			var goalSteps:Array = steps.slice(goalLine, gotoLine+1);
+			var finalGoalSteps:Array = new Array();
+			var offset:int = goalObject.end - goalObject.lineNo;
+			//printIfBlocks();
+			//printStateTable();
+			var currentGotoLine:int = goalObject.end;
+			var iter:int = 1;
+			var breakout:Boolean = false;
+			while (!breakout) {
+				var newGoalSteps:Array = new Array();
+				for (var i:int = 0; i < goalSteps.length; i++) {
+					//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
+					var step:Step = goalSteps[i];
+					var newLineNo:int = step.lineNo + offset*iter;
+					var newStep:Step = step.clone();
+					newStep.lineNo = newLineNo;
+					newGoalSteps.push(newStep);
+					finalGoalSteps.push(newStep);
+				}
+				addInlineStateChanges(goalSteps, offset*iter);
+				// Evaluate the new goal steps to see if further iterations are required
+				var unevaluatedLines:Array = getUnevaluatedSteps(goalObject.start, (currentGotoLine+offset*iter));
+				for (var i:int = 0; i < finalGoalSteps.length; i++) {
+					//trace("unevualated inline "+unevaluatedLines[i]);
+					var step:Step = finalGoalSteps[i];
+					if (step.operator == "goto") {
+						var gotoExcluded:Boolean = unevaluatedLines.indexOf(step.lineNo) != -1;
+						//trace("goto at line " + step.lineNo + " excluded? "+gotoExcluded+" iter "+iter);
+						if (gotoExcluded) breakout = true;
+					} 
+				}
+				iter++;
+				if (iter >= MAX_JUMPS) break;
+				currentGotoLine = currentGotoLine + offset*iter;
+			}
+			return finalGoalSteps;
 		}
 
 		// updates the state table with new inlined steps for goto loops
 		// takes in the relevant goal steps and an offset to update lineNos for new entries
 		public static function addInlineStateChanges(goalSteps: Array, offset: int): void {
-			var startIfIndex:int = -1;
-			var startStateChangeIndex:int = -1;
 			var inlineIfStack:Array = new Array();
-			for (var i = 0; i < goalSteps.length; i++) {
+			for (var i:int = 0; i < goalSteps.length; i++) {
 				var step:Step = goalSteps[i];
 				// Add 'new' if blocks with updated if and endif lines and reset truth
 				if (step.operator == "if") {
@@ -465,7 +479,6 @@ package classes {
 					newIfBlock.truth = true;
 					newIfBlock.endIfLine = ifBlock.endIfLine + offset;
 					$.ifStack.push(newIfBlock);
-					if (startIfIndex == -1) startIfIndex = i;
 				}
 				// Add new createstate/setstate objects
 				if (step.operator == "createstate" || step.operator == "setstate") {
@@ -476,8 +489,8 @@ package classes {
 					newStateChange.value = stateChange.value;
 					newStateChange.valid = true;
 					$.stateTable[stateChange.key].push(newStateChange);
-					if (startStateChangeIndex == -1) startStateChangeIndex = i;
 				}
+										
 			}
 		}
 
@@ -674,7 +687,6 @@ package classes {
 			for (var i = lineNum; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
 				var tokens: Array = frontTrimmedLine.split(' ');
-				trace(frontTrimmedLine);
 				if (tokens[0] == "if") { //Handles nested ifs
 					var ifObject:Object = new Object();
 						ifObject.ifLine = i;
@@ -709,7 +721,7 @@ package classes {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
 			state.key = key;
-			state.value = value;
+			state.value = clean(value);
 			state.valid = true;
 			var scopeList:Array = new Array();
 			scopeList.push(state);
@@ -729,7 +741,7 @@ package classes {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
 			state.key = clean(line[1]);
-			state.value = clean(line[2]);
+			state.value = line[2];
 			state.valid = true;
 			if(line.length == 3){
 				//trace("Found straight case.\n")
@@ -766,7 +778,7 @@ package classes {
 					var goalObject = new Object();
 					goalObject.lineNo = i;
 					goalObject.start = i+1;
-					goalObject.end = lines.length-1;
+					goalObject.end = lines.length+1;
 					// Set the previous goal's end line for its scope
 					if (previousGoal != "") {
 						$.goalTable[previousGoal].end = goalObject.lineNo;

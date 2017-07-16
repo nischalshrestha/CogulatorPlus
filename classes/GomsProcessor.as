@@ -158,7 +158,7 @@ package classes {
 		private static function removeBranchSteps() {
 			var unevaluatedLines:Array = SyntaxColor.getUnevaluatedSteps();
 			var endifIndex:int = 0;
-			for (var i: int = steps.length - 1; i > -1; i--) {
+			for (var i:int = steps.length - 1; i > -1; i--) {
 				var branchStep: int = SyntaxColor.branches.indexOf(steps[i].operator);
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
 					steps.splice(i, 1);	
@@ -169,22 +169,36 @@ package classes {
 		}
 
 		
-		// By the time this method is called, we have removed all steps that won't be
-		// evaluated from the removeBranchSteps() method. SyntaxColor has also taken care
-		// of alerting us to any infinite loops, so we now only deal with valid gotos.
-		// For any remaining gotos, this method evaluates them and inlines the steps by
-		// creating an array that contains inline steps and inserting that to the steps array 
-		// for GanttChart processing
+		// This evaluates all gotos and inlines steps for loops and jumps
 		private static function evaluateGotoSteps(): void {
-			for (var i: int = 0; i < steps.length - 1; i++) {
+			// temporarily store the new array
+			var temp:Array = steps.slice(0, steps.length - 1);
+			var newItems:int = 0;
+			for (var i:int = steps.length - 1; i > -1; i--) {
 				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 				var step:Step = steps[i];
 				if (step.operator == "goto") {
-					var inlineSteps:Array = SyntaxColor.getInlineSteps(step.lineNo, $.goalTable[step.label], steps);
-					trace("total number of inlines "+inlineSteps.length);
+					var gotoIndex:int = i;
+					var goalIndex:int = -1;
+					for (var j:int = steps.length - 1; j > -1; j--) {
+						if (steps[j].lineNo == $.goalTable[step.label].start){
+							goalIndex = j;
+						}
+						if (steps[j].lineNo == $.goalTable[step.label].end){
+							gotoIndex = j;
+						}
+					}
+					var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
+					newItems = newItems + inlineSteps.length;
+					for (var j:int = inlineSteps.length-1; j > -1; j--) {
+						temp.insertAt(i, inlineSteps[j]);
+					}
 				}
 			}
-
+			// set the original steps array to the new one
+			if (newItems > 0){
+				steps = temp;
+			}
 		}
 
 		private static function setPrevLineNo() {
