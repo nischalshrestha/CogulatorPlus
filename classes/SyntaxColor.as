@@ -232,7 +232,7 @@ package classes {
 					if (hasError(tokens, lineNum) && !typing) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
-						createState(lineNum, clean(tokens[1]), clean(tokens[2]));
+						createState(lineNum, tokens[1], tokens[2]);
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
 					break;
@@ -418,25 +418,32 @@ package classes {
 			return true;
 		}*/
 
-		public static function getInlineSteps(gotoLine: int, goalLine: int, goalObject: Object, steps: Array): Array {
+		public static function getInlineSteps(gotoIndex: int, goalIndex: int, goalObject: Object, steps: Array): Array {
+			trace("gotoLine "+gotoIndex);
+			var gotoLine:int = steps[gotoIndex].lineNo;
 			var withinIfIndex:int = withinIfBlock(gotoLine);
-			if (withinIfIndex != -1 && !$.ifStack[withinIfIndex].truth) {
-				return [];
+			if (withinIfIndex != -1) {
+				trace("in");
+				var unevaluatedLines:Array = getUnevaluatedSteps();
+				trace("goto was excluded? "+unevaluatedLines.indexOf(gotoLine));
+				var gotoExcluded:Boolean = unevaluatedLines.indexOf(gotoLine) != -1;
+				if (gotoExcluded) return [];
 			}
-			//trace("indexed goal in getInlineSteps: "+goalLine + " " + gotoLine); // clear out all $.goalTable
 			// Grab the relevant goals
-			var goalSteps:Array = steps.slice(goalLine, gotoLine+1);
+			var goalSteps:Array = steps.slice(goalIndex, gotoIndex+1);
+			// Prepare a final array
 			var finalGoalSteps:Array = new Array();
+			// This offset is for creating fake lists to determine new line numbers for subsequent
+			// iterations of the loop
 			var offset:int = goalObject.end - goalObject.lineNo;
-			//printIfBlocks();
-			//printStateTable();
+			// The goto line shifts when inlining so it will be updated in the process
 			var currentGotoLine:int = goalObject.end;
 			var iter:int = 1;
 			var breakout:Boolean = false;
 			while (!breakout) {
+				// This temporary Array will hold the new inline steps
 				var newGoalSteps:Array = new Array();
 				for (var i:int = 0; i < goalSteps.length; i++) {
-					//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 					var step:Step = goalSteps[i];
 					var newLineNo:int = step.lineNo + offset*iter;
 					var newStep:Step = step.clone();
@@ -444,20 +451,27 @@ package classes {
 					newGoalSteps.push(newStep);
 					finalGoalSteps.push(newStep);
 				}
+				// Make changes to the $.ifStack and the $.stateTable according to new inline steps
 				addInlineStateChanges(goalSteps, offset*iter);
-				// Evaluate the new goal steps to see if further iterations are required
+				// Evaluate the new goal steps from the initial starting point to the new ending point,
+				// which is where we should be after the new inline steps were added
 				var unevaluatedLines:Array = getUnevaluatedSteps(goalObject.start, (currentGotoLine+offset*iter));
+				// Check whether the goto line was excluded, if so we break out of the inlining process
 				for (var i:int = 0; i < finalGoalSteps.length; i++) {
-					//trace("unevualated inline "+unevaluatedLines[i]);
 					var step:Step = finalGoalSteps[i];
 					if (step.operator == "goto") {
 						var gotoExcluded:Boolean = unevaluatedLines.indexOf(step.lineNo) != -1;
-						//trace("goto at line " + step.lineNo + " excluded? "+gotoExcluded+" iter "+iter);
 						if (gotoExcluded) breakout = true;
 					} 
 				}
 				iter++;
-				if (iter >= MAX_JUMPS) break;
+				// Check for infinite loops, there is an arbitrary limit of 20 jumps currently
+				if (iter >= MAX_JUMPS) {
+					// Let GomsProcessor know there has been an infinite loop
+					GomsProcessor.stackOverflow = true;
+					break;
+				}
+				// Update goto line with a new offset
 				currentGotoLine = currentGotoLine + offset*iter;
 			}
 			return finalGoalSteps;
@@ -721,7 +735,7 @@ package classes {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
 			state.key = key;
-			state.value = clean(value);
+			state.value = value;
 			state.valid = true;
 			var scopeList:Array = new Array();
 			scopeList.push(state);

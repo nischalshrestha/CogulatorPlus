@@ -49,6 +49,8 @@ package classes {
 		private static var maxEndTime: Number; // = 0;
 		private static var cycleTime: Number;
 
+		public static var stackOverflow: Boolean = false;
+
 		public static function processGOMS(): Array {
 			maxEndTime = 0;
 			cycleTime = 0; //ms. 50 ms Based on production rule cycle time.  Bovair & Kieras/Card, Moran & Newell
@@ -136,6 +138,8 @@ package classes {
 			}
 			var lines:Array = $.codeTxt.text.split("\r");
 
+			// The goto steps need to be evaluated first since it requires all the steps
+			// including the goal steps.
 			evaluateGotoSteps();
 			removeGoalSteps();
 			removeBranchSteps();
@@ -169,11 +173,12 @@ package classes {
 		}
 
 		
-		// This evaluates all gotos and inlines steps for loops and jumps
+		// Purpose: Evaluates goto steps to either inline or remove steps for loops and jumps respectively
+		// Input: none
+		// Output: none
+		// SideEffect: Inserts and removes items from the steps Array as needed
 		private static function evaluateGotoSteps(): void {
 			// temporarily store the new array
-			var temp:Array = steps.slice(0, steps.length - 1);
-			var newItems:int = 0;
 			for (var i:int = steps.length - 1; i > -1; i--) {
 				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 				var step:Step = steps[i];
@@ -188,16 +193,24 @@ package classes {
 							gotoIndex = j;
 						}
 					}
-					var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
-					newItems = newItems + inlineSteps.length;
-					for (var j:int = inlineSteps.length-1; j > -1; j--) {
-						temp.insertAt(i, inlineSteps[j]);
+					// if the goto forms a loop get inline steps for the loop and update index
+					// to resume searching for goto from the right place
+					if (goalIndex < gotoIndex) {
+						stackOverflow = false;
+						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
+						for (var j:int = inlineSteps.length-1; j > -1; j--) {
+							steps.insertAt(i, inlineSteps[j]);
+						}
+						i = i + inlineSteps.length - 1;
+						// SyntaxColor will set this if there was an infinite loop while evaluating
+						if (stackOverflow) break;
+					} else if (goalIndex > gotoIndex) {
+						// if it's a jump simply cut everything from goto line to goal
+						// Note: As it stands there is no notion of returning from original goal
+						//		 Once a jump has been made the model will run from there onwards
+						steps.splice(i, (goalIndex - gotoIndex));
 					}
 				}
-			}
-			// set the original steps array to the new one
-			if (newItems > 0){
-				steps = temp;
 			}
 		}
 

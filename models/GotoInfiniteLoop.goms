@@ -1,1 +1,1 @@
-createstate state1 on*** This goto loop will execute the max amount of times before haltingGoal look.Look at object* jumps aren't handled yet, when it does it should skip Pointgoto goal look.Point at objectgoto goal hearGoal hear.Hear  the magic raindrop
+createstate state1 off* This goto loop will execute the max amount of times (20 jumps) before haltingGoal look.Look at objectgoto goal look.Point at object *Note how this will only happen after the loop
