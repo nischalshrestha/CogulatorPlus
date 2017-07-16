@@ -96,7 +96,8 @@ package classes {
 		private static function generateStepsArray() {
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
-			var endIndex: int = codeLines[0].length;			
+			var endIndex: int = codeLines[0].length;	
+			var errorIf:int = -1;
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				endIndex = beginIndex + line.length;
@@ -127,10 +128,24 @@ package classes {
 						allmthds.push(stepLabel); //for charting in GanttChart
 						if (indentCount == 1) cntrlmthds.push(stepLabel);  //for charting in GanttChart
 					}
-										
-					if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
+					// Record an error on an if condition in case it causes an infinite loop with goto later
+					if(stepOperator.length > 0 && stepOperator == "if" && syntaxArray[5] == true) {
+						errorIf = lineIndex;
+					}
+					// Check if the goto is okay to add
+					if (syntaxArray[5] == false && stepOperator.length > 0 && stepOperator == "goto") {
+						// If there was an if error around the goto, then raise the error message and 
+						// skip adding the step
+						if (errorIf != -1) {
+						//	$.errors[lineIndex] = "This goto loop may never terminate. Please wrap it with a condition.";
+						} else {
+							// Once the if error has been fixed, delete message and add step
+						//	delete $.errors[lineIndex];
+							var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
+							steps.push(s); 
+						}
+					} else if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
 						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
-						//trace("step operator: "+stepOperator);
 						steps.push(s); 
 					}
 				}
@@ -141,9 +156,6 @@ package classes {
 			// The goto steps need to be evaluated first since it requires all the steps
 			// including the goal steps.
 			evaluateGotoSteps();
-			/*for (var i:int = 0; i < steps.length; i++) {
-				trace("print final step "+steps[i].operator + " line "+steps[i].lineNo);
-			}*/
 			removeGoalSteps();
 			removeBranchSteps();
 			setPrevLineNo();
@@ -175,29 +187,23 @@ package classes {
 			}
 		}
 
-		
 		// Purpose: Evaluates goto steps to either inline or remove steps for loops and jumps respectively
 		// Input: none
 		// Output: none
 		// SideEffect: Inserts and removes items from the steps Array as needed
-		private static function evaluateGotoSteps(): void {
-			// temporarily store the new array
-			//var length:int = steps.length - 1;
+		public static function evaluateGotoSteps(): void {
+			var newItems:int = 0;
+			var idx:int = 0;
 			for (var i:int = 0; i < steps.length; i++) {
-				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 				var step:Step = steps[i];
-				//trace("current step: "+step.operator);
 				if (step.operator == "goto") {
 					var gotoIndex:int = i;
 					var goalIndex:int = -1;
-					//var goalObject:Object = 
 					for (var j:int = 0; j < steps.length; j++) {
 						if (steps[j].lineNo == $.goalTable[step.label].start){
-						//trace("goal start index "+j);
 							goalIndex = j;
 						}
 						if (steps[j].lineNo == $.goalTable[step.label].end){
-						//	trace("goal end index "+j);
 							gotoIndex = j;
 						}
 					}
@@ -206,14 +212,13 @@ package classes {
 					if (goalIndex < gotoIndex) {
 						stackOverflow = false;
 						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
-						for (var j:int = 0; j < inlineSteps.length; j++) {
-							steps.insertAt(i, inlineSteps[j]);
+						idx = gotoIndex;
+						for (var j:int = inlineSteps.length - 1; j > -1; j--) {
+							steps.insertAt(gotoIndex, inlineSteps[j]);
 						}
-						//break;
 						if (inlineSteps.length > 0){
+							newItems = newItems + inlineSteps.length;
 							i = i + inlineSteps.length;
-							//steps.splice(i, 1);
-							//trace("next i step "+steps[i].operator);
 						}
 						// SyntaxColor will set this if there was an infinite loop while evaluating
 						if (stackOverflow) break;
@@ -225,12 +230,17 @@ package classes {
 					}
 				}
 			}
+			// If there were inlined steps inserted, make sure to update lineNos on any remaining steps 
+			for (var j:int = idx+newItems; j < steps.length; j++) {
+				trace("rest of the items : "+steps[j].lineNo + " " + steps[j].operator);
+				steps[j].lineNo = steps[j].lineNo + newItems + 1;
+			}
 		}
 
 		private static function setPrevLineNo() {
 			//steps[0] is set to 0 by default, all others should be updated
 			for (var i: int = 1; i < steps.length; i++) {
-				steps[i].prevLineNo = steps[i - 1].lineNo;
+				steps[i].prevLineNo = steps[i - 1].lineNo - 1;
 			}
 		}
 

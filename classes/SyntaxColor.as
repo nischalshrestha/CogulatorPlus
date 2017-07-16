@@ -111,6 +111,7 @@ package classes {
 		//6: Error fixed in line boolean - the one non-Goms processor calls are looking for
 		//7: Array of chunk names "<>"
 		public static function solarizeLineNum(lineNum:int, beginIndex:int = -1, endIndex:int = -1, chunkNamedInError:String = ""):Array {
+
 			time = "";
 			chunkNames.length = 0;
 			
@@ -210,7 +211,6 @@ package classes {
 		}
 
 		private static function solarizeBranchLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
-		//	trace("index "+index+", beginIndex "+beginIndex+", endIndex "+endIndex+", lineStartIndex "+lineStartIndex);
 			lineLabel = "";
 			time = "";
 			threadLabel = "";
@@ -219,17 +219,12 @@ package classes {
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
 			// then evaluate what the operator is error handle based on the type of operator
 			index = findNextItem(endIndex, lineTxt); 
-			//trace("tirmmed "+trimmedLineTxt);
 			endIndex = (beginIndex + lineTxt.length);
-
-			//trace("begindex "+index);
-			//trace("endIndex "+endIndex);
-			//trace("line end index: "+(lineStartIndex + lineTxt.length));
 
 			var tokens: Array = lineTxt.split(' ');
 			switch (operator) {
 				case "createstate":
-					if (hasError(tokens, lineNum) && !typing) {
+					if (hasError(tokens, lineNum)) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
 						createState(lineNum, tokens[1], tokens[2]);
@@ -268,7 +263,6 @@ package classes {
 					} else {
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
-					threadLabel = "base";
 					break;
 			}
 
@@ -351,7 +345,7 @@ package classes {
 					}
 				}
 			} else if (operator == "endif") {
-				if (tokens.length != 1) {
+				if (tokens.length != 1 && !typing) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was not expecting any arguments."
 					return true;
@@ -372,14 +366,13 @@ package classes {
 				indexGoalLines(lines);
 				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
 				var goalLine = $.goalTable[goalLabel];
-				if (goalLine == undefined && !typing) {
+				if (goalLine == undefined) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
 					return true;
 				}
 				lineLabel = goalLabel;
 			}
-			
 			errorInLine = false;
 			return false;
 		}
@@ -395,7 +388,6 @@ package classes {
 				if (gotoExcluded) return [];
 			}
 			// Grab the relevant goals
-			
 			var goalSteps:Array = steps.slice(goalIndex, gotoIndex+1);
 			// Prepare a final array
 			var finalGoalSteps:Array = new Array();
@@ -403,7 +395,7 @@ package classes {
 			// iterations of the loop
 			var offset:int = goalObject.end - goalObject.lineNo;
 			// The goto line shifts when inlining so it will be updated in the process
-			var currentGotoLine:int = goalObject.end;
+			var currentGotoLine:int = gotoLine;
 			var iter:int = 1;
 			var breakout:Boolean = false;
 			while (!breakout) {
@@ -431,6 +423,7 @@ package classes {
 					} 
 				}
 				iter++;
+				trace("iter "+iter);
 				// Check for infinite loops, there is an arbitrary limit of 20 jumps currently
 				if (iter >= MAX_JUMPS) {
 					// Let GomsProcessor know there has been an infinite loop
@@ -755,11 +748,9 @@ package classes {
 					var goalObject = new Object();
 					goalObject.lineNo = i;
 					goalObject.start = i+1;
-					goalObject.end = lines.length-1;
-					trace("indexing goal end "+goalName + " " + goalObject.end);
+					goalObject.end = lines.length;
 					// Set the previous goal's end line for its scope
 					if (previousGoal != "") {
-						trace("setting previous goal end "+(goalObject.lineNo-1));
 						$.goalTable[previousGoal].end = goalObject.lineNo-1;
 					}
 					$.goalTable[goalName] = goalObject;
@@ -796,7 +787,7 @@ package classes {
 		}
 		
 		private static function solarizeOperatorLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int, chunkNamedInError:String):void {
-			threadLabel = ""; //setting for the return array			
+			threadLabel = "base"; //setting for the return array			
 			
 			//    -evaluate operator
 			var match:Boolean = false;
