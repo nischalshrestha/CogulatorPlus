@@ -213,7 +213,7 @@ package classes {
 		//	trace("index "+index+", beginIndex "+beginIndex+", endIndex "+endIndex+", lineStartIndex "+lineStartIndex);
 			lineLabel = "";
 			time = "";
-			threadLabel = "base";
+			threadLabel = "";
 
 			// first color it magenta just like the methods
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
@@ -268,6 +268,7 @@ package classes {
 					} else {
 						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
 					}
+					threadLabel = "base";
 					break;
 			}
 
@@ -369,11 +370,6 @@ package classes {
 				}
 				// Index all goals defined and check if goal exists
 				indexGoalLines(lines);
-				/*for (var key: Object in $.goalTable) {
-					var goalObject:Object = $.goalTable[key];
-					trace("indexed goal: "+key+" "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable	
-				}*/
-
 				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
 				var goalLine = $.goalTable[goalLabel];
 				if (goalLine == undefined && !typing) {
@@ -381,12 +377,6 @@ package classes {
 					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
 					return true;
 				}
-				/* If it does, check that there is no infinite loop with this goto
-				if (goalLine != undefined && goalLine < lineNum && checkInfiniteLoops(goalLine, lineNum)) {
-					errorInLine = true;
-					$.errors[lineNum] = "Infinite loop detected, please make sure loop terminates."
-					return true;
-				}*/
 				lineLabel = goalLabel;
 			}
 			
@@ -394,42 +384,18 @@ package classes {
 			return false;
 		}
 
-		// IN PROGRESS todo refactor this once the inlining is working
-		// This checks if there is an infinite loop which happens if we make 20 jumps from
-		// the gotoLine and back. This is only possible when the goal is defined above the
-		/* goto line to create the loop.
-		private static function checkInfiniteLoops(goalLine: int, gotoLine: int): Boolean {
-			var lines:Array = $.codeTxt.text.split("\r");
-			var jumps:int = 0;
-			var nextIfLine:int = nextIfLine(lines, goalLine);
-			while (jumps < MAX_JUMPS) {
-				for (var i = goalLine+1; i < gotoLine; i++) {
-					var frontTrimmedLine:String = SyntaxColor.clean(lines[i]);
-					var tokens:Array = frontTrimmedLine.split(' ');
-					if (tokens[0] == "if") {
-						var unevaluatedLines:Array = getUnevaluatedSteps();
-						if (unevaluatedLines.indexOf(gotoLine) != -1) { // goto was finally excluded from execution
-							return false;
-						}
-					}
-				}
-				jumps++;
-			}
-			return true;
-		}*/
-
+		// Creates all the inline steps necessary for a goto loop so GomsProcessor can prepare its steps Array
 		public static function getInlineSteps(gotoIndex: int, goalIndex: int, goalObject: Object, steps: Array): Array {
-			trace("gotoLine "+gotoIndex);
+			// Check if it the goto can even be executed the first time through
 			var gotoLine:int = steps[gotoIndex].lineNo;
 			var withinIfIndex:int = withinIfBlock(gotoLine);
 			if (withinIfIndex != -1) {
-				trace("in");
 				var unevaluatedLines:Array = getUnevaluatedSteps();
-				trace("goto was excluded? "+unevaluatedLines.indexOf(gotoLine));
 				var gotoExcluded:Boolean = unevaluatedLines.indexOf(gotoLine) != -1;
 				if (gotoExcluded) return [];
 			}
 			// Grab the relevant goals
+			
 			var goalSteps:Array = steps.slice(goalIndex, gotoIndex+1);
 			// Prepare a final array
 			var finalGoalSteps:Array = new Array();
@@ -480,7 +446,6 @@ package classes {
 		// updates the state table with new inlined steps for goto loops
 		// takes in the relevant goal steps and an offset to update lineNos for new entries
 		public static function addInlineStateChanges(goalSteps: Array, offset: int): void {
-			var inlineIfStack:Array = new Array();
 			for (var i:int = 0; i < goalSteps.length; i++) {
 				var step:Step = goalSteps[i];
 				// Add 'new' if blocks with updated if and endif lines and reset truth
@@ -503,8 +468,7 @@ package classes {
 					newStateChange.value = stateChange.value;
 					newStateChange.valid = true;
 					$.stateTable[stateChange.key].push(newStateChange);
-				}
-										
+				}						
 			}
 		}
 
@@ -519,7 +483,7 @@ package classes {
 		// Convenience function for debugging state table
 		public static function printStateTable(): void {
 			for (var key: Object in $.stateTable) {
-				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
+				var scopeList:Array = $.stateTable[key];
 				for (var i = 0; i < scopeList.length; i++) {
 					var stateChange:Object = scopeList[i];
 					trace(stateChange.lineNo+" state change "+stateChange.key + " "+stateChange.value);
@@ -758,7 +722,6 @@ package classes {
 			state.value = line[2];
 			state.valid = true;
 			if(line.length == 3){
-				//trace("Found straight case.\n")
 				// grab the scope list associated with the state and push the new scope in
 				$.stateTable[line[1]].push(state);
 			} else { //should have 4 tokens, SetState state_name value probability (number between 0-1) 
@@ -792,10 +755,12 @@ package classes {
 					var goalObject = new Object();
 					goalObject.lineNo = i;
 					goalObject.start = i+1;
-					goalObject.end = lines.length+1;
+					goalObject.end = lines.length-1;
+					trace("indexing goal end "+goalName + " " + goalObject.end);
 					// Set the previous goal's end line for its scope
 					if (previousGoal != "") {
-						$.goalTable[previousGoal].end = goalObject.lineNo;
+						trace("setting previous goal end "+(goalObject.lineNo-1));
+						$.goalTable[previousGoal].end = goalObject.lineNo-1;
 					}
 					$.goalTable[goalName] = goalObject;
 					previousGoal = goalName;

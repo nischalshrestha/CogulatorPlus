@@ -141,6 +141,9 @@ package classes {
 			// The goto steps need to be evaluated first since it requires all the steps
 			// including the goal steps.
 			evaluateGotoSteps();
+			/*for (var i:int = 0; i < steps.length; i++) {
+				trace("print final step "+steps[i].operator + " line "+steps[i].lineNo);
+			}*/
 			removeGoalSteps();
 			removeBranchSteps();
 			setPrevLineNo();
@@ -179,17 +182,22 @@ package classes {
 		// SideEffect: Inserts and removes items from the steps Array as needed
 		private static function evaluateGotoSteps(): void {
 			// temporarily store the new array
-			for (var i:int = steps.length - 1; i > -1; i--) {
+			//var length:int = steps.length - 1;
+			for (var i:int = 0; i < steps.length; i++) {
 				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 				var step:Step = steps[i];
+				//trace("current step: "+step.operator);
 				if (step.operator == "goto") {
 					var gotoIndex:int = i;
 					var goalIndex:int = -1;
-					for (var j:int = steps.length - 1; j > -1; j--) {
+					//var goalObject:Object = 
+					for (var j:int = 0; j < steps.length; j++) {
 						if (steps[j].lineNo == $.goalTable[step.label].start){
+						//trace("goal start index "+j);
 							goalIndex = j;
 						}
 						if (steps[j].lineNo == $.goalTable[step.label].end){
+						//	trace("goal end index "+j);
 							gotoIndex = j;
 						}
 					}
@@ -198,10 +206,15 @@ package classes {
 					if (goalIndex < gotoIndex) {
 						stackOverflow = false;
 						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
-						for (var j:int = inlineSteps.length-1; j > -1; j--) {
+						for (var j:int = 0; j < inlineSteps.length; j++) {
 							steps.insertAt(i, inlineSteps[j]);
 						}
-						i = i + inlineSteps.length - 1;
+						//break;
+						if (inlineSteps.length > 0){
+							i = i + inlineSteps.length;
+							//steps.splice(i, 1);
+							//trace("next i step "+steps[i].operator);
+						}
 						// SyntaxColor will set this if there was an infinite loop while evaluating
 						if (stackOverflow) break;
 					} else if (goalIndex > gotoIndex) {
