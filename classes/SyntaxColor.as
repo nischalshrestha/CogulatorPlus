@@ -229,7 +229,7 @@ package classes {
 			var tokens: Array = lineTxt.split(' ');
 			switch (operator) {
 				case "createstate":
-					if (hasError(tokens, lineNum)) {
+					if (hasError(tokens, lineNum) && !typing) {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
 						createState(lineNum, clean(tokens[1]), clean(tokens[2]));
@@ -293,6 +293,7 @@ package classes {
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			//Gets rid of empty tokens caused by whitespace
 			tokens = tokens.filter(noEmpty);
+			trace("token length "+tokens.toString());
 			var lines:Array = $.codeTxt.text.split("\r");
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
@@ -301,8 +302,9 @@ package classes {
 				if (tokens.length != 3) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 2 arguments."
+										trace("ahhh");
 					return true;
-				} else if ($.stateTable[tokens[1]] !== undefined && !typing) {
+				} else if ($.stateTable[clean(tokens[1])] !== undefined && !typing) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
 					return true;
@@ -312,7 +314,7 @@ package classes {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 2 or 3 arguments."
 					return true;
-				} else if($.stateTable[tokens[1]] == undefined){
+				} else if($.stateTable[clean(tokens[1])] == undefined){
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
 					return true;
@@ -389,6 +391,7 @@ package classes {
 				}*/
 				lineLabel = goalLabel;
 			}
+			
 			errorInLine = false;
 			return false;
 		}
@@ -418,11 +421,14 @@ package classes {
 		}*/
 
 		public static function getInlineSteps(gotoLine: int, goalObject: Object, steps: Array): Array {
-			trace("indexed goal in getInlineSteps: "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable
+			//trace("indexed goal in getInlineSteps: "+goalObject.lineNo + " " + goalObject.start + " " + goalObject.end); // clear out all $.goalTable
+			// Grab the relevant goals
 			var goalSteps:Array = steps.slice(goalObject.lineNo, gotoLine+1);
 			var newGoalSteps:Array = new Array();
 			var offset:int = gotoLine - goalObject.start;
-			trace("offset "+offset);
+			addInlineStateChanges(goalSteps, offset);
+			printIfBlocks();
+			printStateTable();
 			for (var i: int = 0; i < goalSteps.length; i++) {
 				//trace("resulting inline list: "+steps[i].operator+" "+steps[i].label);
 				var step:Step = goalSteps[i];
@@ -431,15 +437,21 @@ package classes {
 				newStep.lineNo = newLineNo;
 				newGoalSteps.push(newStep);
 			}
-							
-			addInlineStateChanges(goalSteps, offset);
+			// Evaluate the new goal steps to see if further iterations are required
+			var unevaluatedLines:Array = getUnevaluatedSteps(goalObject.start+offset, (gotoLine+offset));
+			/*
+			trace("unevaluatedInlineSteps "+unevaluatedLines);
+			for (var i = 0; i < unevaluatedLines.length; i++) {
+				trace("unevualated inline "+unevaluatedLines[i]);
+			}*/
 			return goalSteps;
 		}
 
 		// updates the state table with new inlined steps for goto loops
 		// takes in the relevant goal steps and an offset to update lineNos for new entries
 		public static function addInlineStateChanges(goalSteps: Array, offset: int): void {
-			var startInlineIndex:int = -1;
+			var startIfIndex:int = -1;
+			var startStateChangeIndex:int = -1;
 			var inlineIfStack:Array = new Array();
 			for (var i = 0; i < goalSteps.length; i++) {
 				var step:Step = goalSteps[i];
@@ -453,13 +465,42 @@ package classes {
 					newIfBlock.truth = true;
 					newIfBlock.endIfLine = ifBlock.endIfLine + offset;
 					$.ifStack.push(newIfBlock);
-					if (startInlineIndex == -1) startInlineIndex = i;
+					if (startIfIndex == -1) startIfIndex = i;
 				}
-				// todo handle createstate/setstate as well
+				// Add new createstate/setstate objects
+				if (step.operator == "createstate" || step.operator == "setstate") {
+					var stateChange:Object = findStateChangeIndex(step.lineNo);
+					var newStateChange:Object = new Object();
+					newStateChange.lineNo = stateChange.lineNo + offset;
+					newStateChange.key = stateChange.key;
+					newStateChange.value = stateChange.value;
+					newStateChange.valid = true;
+					$.stateTable[stateChange.key].push(newStateChange);
+					if (startStateChangeIndex == -1) startStateChangeIndex = i;
+				}
 			}
 		}
 
-		// Returns the ifBlock given the ifLine
+		// Convenience function for debugging if stack
+		public static function printIfBlocks(): void {
+			for (var i = 0; i < $.ifStack.length; i++) {
+				var ifBlock:Object = $.ifStack[i];
+				trace(ifBlock.ifLine + " if " + ifBlock.key + " " + ifBlock.value);
+			}
+		}
+
+		// Convenience function for debugging state table
+		public static function printStateTable(): void {
+			for (var key: Object in $.stateTable) {
+				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
+				for (var i = 0; i < scopeList.length; i++) {
+					var stateChange:Object = scopeList[i];
+					trace(stateChange.lineNo+" state change "+stateChange.key + " "+stateChange.value);
+				}
+			}
+		}
+
+		// Returns the ifBlock Object given the ifLine
 		public static function findIfBlock(ifLine: int): Object {
 			for (var i = 0; i < $.ifStack.length; i++) {
 				if ($.ifStack[i].ifLine == ifLine) {
@@ -469,35 +510,51 @@ package classes {
 			return null;
 		}
 
+		// Returns the createstate/setstate Object given the ifLine
+		public static function findStateChangeIndex(lineNo: int): Object {
+			for (var key: Object in $.stateTable) {
+				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
+				for (var i = 0; i < scopeList.length; i++) {
+					//trace("sc No: "+scopeList[i].lineNo);
+					if (scopeList[i].lineNo == lineNo) {
+						return scopeList[i];
+					}
+				}
+			}
+			return null;
+		}
+
 		// Purpose: Evaluate all if blocks in $.ifStack and return an Array of line numbers to remove
 		// Input: none
 		// Output: Array holding all the line numbers for steps the GomsProcessor will remove
 		// SideEffect: changes truth value of if blocks and possibly valid attribute of state objects
-		public static function getUnevaluatedSteps(start: int = -1, end: int = -1): Array {
+		public static function getUnevaluatedSteps(start: int = int.MIN_VALUE, end: int = int.MAX_VALUE): Array {
 			var unevaluatedLines:Array = new Array();
 			for (var i = 0; i < $.ifStack.length; i++) {
 				var ifBlock:Object = $.ifStack[i];
-				// check if the current if block is within another if block
-				var parentIfIndex:int = withinIfBlock(ifBlock.ifLine);
-				var parentIfBlock:Object;
-				if (parentIfIndex != -1) {
-					parentIfBlock = $.ifStack[parentIfIndex];
-				}
-				// if so, check if that parent if block is false
-				if (parentIfBlock != null && !parentIfBlock.truth) {
-					// if parent if block is false, we're done. 
-					// invalidate the if line and add unevaluated lines
-					gatherUnevaluatedLines(i, unevaluatedLines);
-					// continue on to the next if block to evaluate
-					continue;
-				}
-				// if you're here, it means current if block can be evaluated
-				// grab the latest state change before this if block that's valid to check against
-				var nextScope:Object = returnNextScope(ifBlock.ifLine, ifBlock.key);
-				var evaluation:Boolean = evaluateIfStatement(nextScope.value, ifBlock.value);
-				if (!evaluation) {
-					// if current if block is within a parent if block that's false, add lines
-					gatherUnevaluatedLines(i, unevaluatedLines);
+				if (ifBlock.ifLine >= start && ifBlock.ifLine <= end) {
+					// check if the current if block is within another if block
+					var parentIfIndex:int = withinIfBlock(ifBlock.ifLine);
+					var parentIfBlock:Object;
+					if (parentIfIndex != -1) {
+						parentIfBlock = $.ifStack[parentIfIndex];
+					}
+					// if so, check if that parent if block is false
+					if (parentIfBlock != null && !parentIfBlock.truth) {
+						// if parent if block is false, we're done. 
+						// invalidate the if line and add unevaluated lines
+						gatherUnevaluatedLines(i, unevaluatedLines);
+						// continue on to the next if block to evaluate
+						continue;
+					}
+					// if you're here, it means current if block can be evaluated
+					// grab the latest state change before this if block that's valid to check against
+					var nextScope:Object = returnNextScope(ifBlock.ifLine, ifBlock.key);
+					var evaluation:Boolean = evaluateIfStatement(nextScope.value, ifBlock.value);
+					if (!evaluation) {
+						// if current if block is within a parent if block that's false, add lines
+						gatherUnevaluatedLines(i, unevaluatedLines);
+					}
 				}
 			}
 			return unevaluatedLines;
