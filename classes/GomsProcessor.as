@@ -129,18 +129,23 @@ package classes {
 						if (indentCount == 1) cntrlmthds.push(stepLabel);  //for charting in GanttChart
 					}
 					// Record an error on an if condition in case it causes an infinite loop with goto later
-					if(stepOperator.length > 0 && stepOperator == "if" && syntaxArray[5] == true) {
-						errorIf = lineIndex;
+					if(stepOperator.length > 0 && stepOperator == "if") {
+						var ifBlock:Object = $.ifStack[lineIndex];
+						if (syntaxArray[5] == true ||  (ifBlock != undefined && !ifBlock.truth)) {
+							errorIf = lineIndex;
+						}
 					}
 					// Check if the goto is okay to add
-					if (syntaxArray[5] == false && stepOperator.length > 0 && stepOperator == "goto") {
+					else if (stepOperator.length > 0 && stepOperator == "goto") {
 						// If there was an if error around the goto, then raise the error message and 
 						// skip adding the step
-						if (errorIf != -1) {
-						//	$.errors[lineIndex] = "This goto loop may never terminate. Please wrap it with a condition.";
+						var withinIfIndex:int = SyntaxColor.withinIfBlock(lineIndex);
+						if (errorIf != -1 || (withinIfIndex != -1 && errorIf == withinIfIndex)) {
+							// Todo: Commenting this for now, but we can be more precautious by making the modeler
+							// put ifs around gotos for termination conditions
+							//$.errors[lineIndex] = "This goto loop may never terminate.";
 						} else {
 							// Once the if error has been fixed, delete message and add step
-						//	delete $.errors[lineIndex];
 							var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
 							steps.push(s); 
 						}
@@ -192,48 +197,49 @@ package classes {
 		// Output: none
 		// SideEffect: Inserts and removes items from the steps Array as needed
 		public static function evaluateGotoSteps(): void {
-			var newItems:int = 0;
-			var idx:int = 0;
+			var inlineItems:int = 0;
+			var inlineIndex:int = 0;
+								
 			for (var i:int = 0; i < steps.length; i++) {
 				var step:Step = steps[i];
 				if (step.operator == "goto") {
 					var gotoIndex:int = i;
 					var goalIndex:int = -1;
 					for (var j:int = 0; j < steps.length; j++) {
-						if (steps[j].lineNo == $.goalTable[step.label].start){
+						if (steps[j].lineNo == $.goalTable[step.label].lineNo){
 							goalIndex = j;
-						}
-						if (steps[j].lineNo == $.goalTable[step.label].end){
-							gotoIndex = j;
-						}
+						}		
 					}
-					// if the goto forms a loop get inline steps for the loop and update index
-					// to resume searching for goto from the right place
+					// if the goto forms a loop get inline steps for the loop and insert them
 					if (goalIndex < gotoIndex) {
 						stackOverflow = false;
+						//trace("this must be goto "+steps[gotoIndex].operator);
 						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
-						idx = gotoIndex;
+						//inlineSteps.splice(inlineSteps.length-2, 2);
+						inlineIndex = i;
+						// This replaces the current element with the next
+						if (steps[i+1] != undefined) steps.splice(i, 1, steps[i+1]);
 						for (var j:int = inlineSteps.length - 1; j > -1; j--) {
 							steps.insertAt(gotoIndex, inlineSteps[j]);
 						}
+						// Update the index pointer so we resume processing at the right spot
 						if (inlineSteps.length > 0){
-							newItems = newItems + inlineSteps.length;
 							i = i + inlineSteps.length;
+							inlineItems = inlineSteps.length;
 						}
 						// SyntaxColor will set this if there was an infinite loop while evaluating
 						if (stackOverflow) break;
 					} else if (goalIndex > gotoIndex) {
 						// if it's a jump simply cut everything from goto line to goal
-						// Note: As it stands there is no notion of returning from original goal
-						//		 Once a jump has been made the model will run from there onwards
+						// Note: As it stands there is no notion of returning from original goal.
+						//		 Once a jump has been made the model will run from there onwards.
 						steps.splice(i, (goalIndex - gotoIndex));
 					}
 				}
 			}
 			// If there were inlined steps inserted, make sure to update lineNos on any remaining steps 
-			for (var j:int = idx+newItems; j < steps.length; j++) {
-				trace("rest of the items : "+steps[j].lineNo + " " + steps[j].operator);
-				steps[j].lineNo = steps[j].lineNo + newItems + 1;
+			for (var j:int = inlineIndex+inlineItems; j < steps.length; j++) {
+				steps[j].lineNo = steps[j].lineNo + inlineItems;
 			}
 		}
 

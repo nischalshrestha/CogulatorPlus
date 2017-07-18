@@ -213,7 +213,7 @@ package classes {
 		private static function solarizeBranchLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
 			lineLabel = "";
 			time = "";
-			threadLabel = "";
+			threadLabel = "base";
 
 			// first color it magenta just like the methods
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
@@ -222,6 +222,8 @@ package classes {
 			endIndex = (beginIndex + lineTxt.length);
 
 			var tokens: Array = lineTxt.split(' ');
+			//Gets rid of empty tokens caused by whitespace
+			tokens = tokens.filter(noEmpty);
 			switch (operator) {
 				case "createstate":
 					if (hasError(tokens, lineNum)) {
@@ -286,8 +288,6 @@ package classes {
 		// Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
 		//		  GenerateStepsArray when GoTo is processed.
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
-			//Gets rid of empty tokens caused by whitespace
-			tokens = tokens.filter(noEmpty);
 			var lines:Array = $.codeTxt.text.split("\r");
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
@@ -316,7 +316,7 @@ package classes {
 					if(isNaN(tokens[3])){
 						//trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
 						errorInLine = true;
-						$.errors[lineNum] = "3rd argument should be a number between 0 and 1, but I got '"+tokens[3]+"'"
+						$.errors[lineNum] = "3rd argument should be a number between 0 and 1"
 						return true;
 					} else {
 						var prob = Number(tokens[3]);
@@ -382,18 +382,19 @@ package classes {
 			// Check if it the goto can even be executed the first time through
 			var gotoLine:int = steps[gotoIndex].lineNo;
 			var withinIfIndex:int = withinIfBlock(gotoLine);
+		//	trace("gotoLine pre "+gotoLine);
 			if (withinIfIndex != -1) {
 				var unevaluatedLines:Array = getUnevaluatedSteps();
 				var gotoExcluded:Boolean = unevaluatedLines.indexOf(gotoLine) != -1;
 				if (gotoExcluded) return [];
 			}
 			// Grab the relevant goals
-			var goalSteps:Array = steps.slice(goalIndex, gotoIndex+1);
+			var goalSteps:Array = steps.slice(goalIndex+1, gotoIndex+1);
 			// Prepare a final array
 			var finalGoalSteps:Array = new Array();
 			// This offset is for creating fake lists to determine new line numbers for subsequent
 			// iterations of the loop
-			var offset:int = goalObject.end - goalObject.lineNo;
+			var offset:int = gotoLine - goalObject.start;
 			// The goto line shifts when inlining so it will be updated in the process
 			var currentGotoLine:int = gotoLine;
 			var iter:int = 1;
@@ -419,11 +420,13 @@ package classes {
 					var step:Step = finalGoalSteps[i];
 					if (step.operator == "goto") {
 						var gotoExcluded:Boolean = unevaluatedLines.indexOf(step.lineNo) != -1;
-						if (gotoExcluded) breakout = true;
-					} 
+						if (gotoExcluded) {
+							breakout = true;
+						}
+					}
 				}
 				iter++;
-				trace("iter "+iter);
+				//trace("iter "+iter);
 				// Check for infinite loops, there is an arbitrary limit of 20 jumps currently
 				if (iter >= MAX_JUMPS) {
 					// Let GomsProcessor know there has been an infinite loop
@@ -752,9 +755,11 @@ package classes {
 					// Set the previous goal's end line for its scope
 					if (previousGoal != "") {
 						$.goalTable[previousGoal].end = goalObject.lineNo-1;
+						//trace("prev goal "+goalName+" line "+$.goalTable[previousGoal].lineNo+" start "+$.goalTable[previousGoal].start+" end "+$.goalTable[previousGoal].end);
 					}
 					$.goalTable[goalName] = goalObject;
 					previousGoal = goalName;
+					//trace("goal "+goalName+" line "+i+" start "+goalObject.start+" end "+goalObject.end);
 				}
 			}
 		}
