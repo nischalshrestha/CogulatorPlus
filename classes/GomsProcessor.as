@@ -189,7 +189,7 @@ package classes {
 						if (steps[j].lineNo == $.goalTable[step.label].lineNo){
 							goalIndex = j;
 						}	
-						if (steps[j].lineNo == $.goalTable[step.label].end-1){
+						if (steps[j].lineNo == $.goalTable[step.label].end){
 							goalEndIndex = j;
 						}	
 					}
@@ -200,7 +200,7 @@ package classes {
 						// way the inlining.
 						if (goalIndex != -1 && steps[goalIndex+1] != undefined) {
 							// Get number of spaces between goal and goto
-							emptyLines = countEmptyLines(goalIndex, goalEndIndex+1);
+							emptyLines = countEmptyLines(goalIndex, goalEndIndex);
 						}
 						stackOverflow = false;
 						//trace("this must be goto "+steps[gotoIndex].operator);
@@ -215,7 +215,6 @@ package classes {
 						for (var j:int = inlineSteps.length - 1; j > -1; j--) {
 							steps.insertAt(gotoIndex, inlineSteps[j]);
 						}
-						//printSteps();
 						// Update the index pointer so we resume processing at the right spot
 						if (inlineSteps.length > 0){
 							inlineIndex = i;
@@ -233,7 +232,6 @@ package classes {
 						for (var j:int = afterInlineIndex; j < steps.length; j++, toIncrement++) {
 							steps[j].lineNo = toIncrement;
 						}
-						printSteps();
 					} else if (goalIndex > gotoIndex) {
 						// if it's a jump simply cut everything from goto line to goal
 						// Note: As it stands there is no notion of returning from original goal.

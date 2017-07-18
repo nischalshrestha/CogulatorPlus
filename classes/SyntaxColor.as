@@ -738,9 +738,8 @@ package classes {
 		// Input: Array of lines representing the text on the editor
 		// Output: none
 		// SideEffect: makes entries of all the goals in the model in $.goalTable
-		// Notes: Does not enforce scope
+		// Notes: Creates scope objects for goals
 		private static function indexGoalLines(lines: Array): void {
-			var previousGoal:String = "";
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
@@ -751,15 +750,33 @@ package classes {
 					var goalObject = new Object();
 					goalObject.lineNo = i;
 					goalObject.start = i+1;
-					goalObject.end = lines.length;
-					// Set the previous goal's end line for its scope
-					if (previousGoal != "") {
-						$.goalTable[previousGoal].end = goalObject.lineNo-1;
-					}
+					goalObject.end = determineGoalEnd(goalObject.start, goalName, lines);
 					$.goalTable[goalName] = goalObject;
-					previousGoal = goalName;
 				}
 			}
+		}
+
+		// Purpose: Finds the end of a goal by looking for the next goal or end of model
+		// Input: 	A goalLine to start the search
+		//			The goalName of the goal for which the end line is required 
+		//			Array of lines representing the text on the editor
+		// Output: The int representing the line index
+		// SideEffect: none
+		private static function determineGoalEnd(goalLine: int, goalName: String, lines: Array): int {
+			var end:int = goalLine;
+			for (var i = goalLine; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				var operator: String = tokens[0].toLowerCase();
+				var goal = frontTrimmedLine.toLowerCase().split("goal ")[1];
+				if (operator == "goal" && goal != goalName) {
+					return end;
+				}
+				if (frontTrimmedLine != "") {
+					end = i;
+				}
+			}
+			return lines.length;
 		}
 
 		private static function solarizeGoalLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
