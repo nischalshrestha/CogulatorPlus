@@ -223,7 +223,6 @@ package classes {
 
 			var tokens: Array = lineTxt.split(' ');
 			//Gets rid of empty tokens caused by whitespace
-			tokens = tokens.filter(noEmpty);
 			switch (operator) {
 				case "createstate":
 					if (hasError(tokens, lineNum)) {
@@ -289,6 +288,7 @@ package classes {
 		//		  GenerateStepsArray when GoTo is processed.
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			var lines:Array = $.codeTxt.text.split("\r");
+			tokens = tokens.filter(noEmpty);
 			if (operator == "createstate") {
 				//CreateState name value extraStuff
 				//CreateState name
@@ -382,51 +382,51 @@ package classes {
 			// Check if it the goto can even be executed the first time through
 			var gotoLine:int = steps[gotoIndex].lineNo;
 			var withinIfIndex:int = withinIfBlock(gotoLine);
-		//	trace("gotoLine pre "+gotoLine);
 			if (withinIfIndex != -1) {
 				var unevaluatedLines:Array = getUnevaluatedSteps();
 				var gotoExcluded:Boolean = unevaluatedLines.indexOf(gotoLine) != -1;
 				if (gotoExcluded) return [];
 			}
+			//trace("goal end "+goalObject.end);
 			// Grab the relevant goals
 			var goalSteps:Array = steps.slice(goalIndex+1, gotoIndex+1);
 			// Prepare a final array
 			var finalGoalSteps:Array = new Array();
 			// This offset is for creating fake lists to determine new line numbers for subsequent
 			// iterations of the loop
-			var offset:int = gotoLine - goalObject.start;
+			var offset:int = gotoLine - goalSteps[0].lineNo;
 			// The goto line shifts when inlining so it will be updated in the process
 			var currentGotoLine:int = gotoLine;
 			var iter:int = 1;
 			var breakout:Boolean = false;
 			while (!breakout) {
-				// This temporary Array will hold the new inline steps
-				var newGoalSteps:Array = new Array();
+				// Push new steps onto the final array to return
 				for (var i:int = 0; i < goalSteps.length; i++) {
 					var step:Step = goalSteps[i];
 					var newLineNo:int = step.lineNo + offset*iter;
 					var newStep:Step = step.clone();
 					newStep.lineNo = newLineNo;
-					newGoalSteps.push(newStep);
 					finalGoalSteps.push(newStep);
 				}
 				// Make changes to the $.ifStack and the $.stateTable according to new inline steps
 				addInlineStateChanges(goalSteps, offset*iter);
 				// Evaluate the new goal steps from the initial starting point to the new ending point,
 				// which is where we should be after the new inline steps were added
-				var unevaluatedLines:Array = getUnevaluatedSteps(goalObject.start, (currentGotoLine+offset*iter));
+				var unevaluatedLines:Array = getUnevaluatedSteps(goalSteps[0].lineNo, (currentGotoLine+offset*iter));
 				// Check whether the goto line was excluded, if so we break out of the inlining process
 				for (var i:int = 0; i < finalGoalSteps.length; i++) {
 					var step:Step = finalGoalSteps[i];
 					if (step.operator == "goto") {
-						var gotoExcluded:Boolean = unevaluatedLines.indexOf(step.lineNo) != -1;
+						var gotoExcludedIndex:int = unevaluatedLines.indexOf(step.lineNo);
+						var gotoExcluded:Boolean = gotoExcludedIndex != -1;
 						if (gotoExcluded) {
+							// Remove the goto line as well
+							finalGoalSteps.splice(i, 1);
 							breakout = true;
 						}
 					}
 				}
 				iter++;
-				//trace("iter "+iter);
 				// Check for infinite loops, there is an arbitrary limit of 20 jumps currently
 				if (iter >= MAX_JUMPS) {
 					// Let GomsProcessor know there has been an infinite loop
@@ -755,11 +755,9 @@ package classes {
 					// Set the previous goal's end line for its scope
 					if (previousGoal != "") {
 						$.goalTable[previousGoal].end = goalObject.lineNo-1;
-						//trace("prev goal "+goalName+" line "+$.goalTable[previousGoal].lineNo+" start "+$.goalTable[previousGoal].start+" end "+$.goalTable[previousGoal].end);
 					}
 					$.goalTable[goalName] = goalObject;
 					previousGoal = goalName;
-					//trace("goal "+goalName+" line "+i+" start "+goalObject.start+" end "+goalObject.end);
 				}
 			}
 		}

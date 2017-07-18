@@ -97,7 +97,6 @@ package classes {
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
 			var endIndex: int = codeLines[0].length;	
-			var errorIf:int = -1;
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
 				endIndex = beginIndex + line.length;
@@ -128,28 +127,7 @@ package classes {
 						allmthds.push(stepLabel); //for charting in GanttChart
 						if (indentCount == 1) cntrlmthds.push(stepLabel);  //for charting in GanttChart
 					}
-					// Record an error on an if condition in case it causes an infinite loop with goto later
-					if(stepOperator.length > 0 && stepOperator == "if") {
-						var ifBlock:Object = $.ifStack[lineIndex];
-						if (syntaxArray[5] == true ||  (ifBlock != undefined && !ifBlock.truth)) {
-							errorIf = lineIndex;
-						}
-					}
-					// Check if the goto is okay to add
-					else if (stepOperator.length > 0 && stepOperator == "goto") {
-						// If there was an if error around the goto, then raise the error message and 
-						// skip adding the step
-						var withinIfIndex:int = SyntaxColor.withinIfBlock(lineIndex);
-						if (errorIf != -1 || (withinIfIndex != -1 && errorIf == withinIfIndex)) {
-							// Todo: Commenting this for now, but we can be more precautious by making the modeler
-							// put ifs around gotos for termination conditions
-							//$.errors[lineIndex] = "This goto loop may never terminate.";
-						} else {
-							// Once the if error has been fixed, delete message and add step
-							var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
-							steps.push(s); 
-						}
-					} else if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
+					if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
 						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
 						steps.push(s); 
 					}
@@ -199,36 +177,63 @@ package classes {
 		public static function evaluateGotoSteps(): void {
 			var inlineItems:int = 0;
 			var inlineIndex:int = 0;
-								
 			for (var i:int = 0; i < steps.length; i++) {
 				var step:Step = steps[i];
 				if (step.operator == "goto") {
+					// This is for counting empty lines
+					var emptyLines:int = 0;
 					var gotoIndex:int = i;
 					var goalIndex:int = -1;
+					var goalEndIndex:int = -1;
 					for (var j:int = 0; j < steps.length; j++) {
 						if (steps[j].lineNo == $.goalTable[step.label].lineNo){
 							goalIndex = j;
-						}		
+						}	
+						if (steps[j].lineNo == $.goalTable[step.label].end-1){
+							goalEndIndex = j;
+						}	
 					}
 					// if the goto forms a loop get inline steps for the loop and insert them
 					if (goalIndex < gotoIndex) {
+						// Because steps array will skip empty lines and hence line numbers, we need to consider 
+						// any possible spaces between the first step and the gotoline as this will affect the 
+						// way the inlining.
+						if (goalIndex != -1 && steps[goalIndex+1] != undefined) {
+							// Get number of spaces between goal and goto
+							emptyLines = countEmptyLines(goalIndex, goalEndIndex+1);
+						}
 						stackOverflow = false;
 						//trace("this must be goto "+steps[gotoIndex].operator);
+						//trace("Goal "+steps[goalIndex].operator+" "+$.goalTable[step.label].start + " "+$.goalTable[step.label].end);
 						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
-						//inlineSteps.splice(inlineSteps.length-2, 2);
-						inlineIndex = i;
 						// This replaces the current element with the next
-						if (steps[i+1] != undefined) steps.splice(i, 1, steps[i+1]);
+						if (steps[i+1] != undefined) {
+							var newStep:Step = steps[i+1].clone();
+							newStep.lineNo = steps[i].lineNo;
+							steps.splice(i, 1, newStep);
+						} 
 						for (var j:int = inlineSteps.length - 1; j > -1; j--) {
 							steps.insertAt(gotoIndex, inlineSteps[j]);
 						}
+						//printSteps();
 						// Update the index pointer so we resume processing at the right spot
 						if (inlineSteps.length > 0){
+							inlineIndex = i;
 							i = i + inlineSteps.length;
 							inlineItems = inlineSteps.length;
 						}
 						// SyntaxColor will set this if there was an infinite loop while evaluating
 						if (stackOverflow) break;
+						// The index from which we started inlining
+						var afterInlineIndex:int = inlineIndex + inlineItems;
+						// The offset for the remainder of steps has to be the total number of new items plus emptylines
+						var toIncrement:int = steps[afterInlineIndex-1].lineNo + emptyLines;
+						//trace("toIncrement "+toIncrement);
+						// If there were inlined steps inserted, make sure to update lineNos on any remaining steps 
+						for (var j:int = afterInlineIndex; j < steps.length; j++, toIncrement++) {
+							steps[j].lineNo = toIncrement;
+						}
+						printSteps();
 					} else if (goalIndex > gotoIndex) {
 						// if it's a jump simply cut everything from goto line to goal
 						// Note: As it stands there is no notion of returning from original goal.
@@ -236,10 +241,29 @@ package classes {
 						steps.splice(i, (goalIndex - gotoIndex));
 					}
 				}
+			}	
+		}
+
+		// Counts up any empty lines between two line indices
+		private static function countEmptyLines(start: int = int.MIN_VALUE, end: int = int.MAX_VALUE): int {
+			if (steps.length <= 1) return 0;
+			var count:int = 0;
+			var previous:int = steps[start].lineNo;
+			for (var i:int = start+1; i <= end; i++) {
+				var step:Step = steps[i];
+				var difference:int = step.lineNo - previous;
+				if (difference > 1) {
+					count = count + (difference - 1);
+				}
+				previous = step.lineNo;
 			}
-			// If there were inlined steps inserted, make sure to update lineNos on any remaining steps 
-			for (var j:int = inlineIndex+inlineItems; j < steps.length; j++) {
-				steps[j].lineNo = steps[j].lineNo + inlineItems;
+			return count;
+		}
+
+		// Convenience function to print steps and their lineNos
+		public static function printSteps(): void {
+			for (var j:int = 0; j < steps.length; j++) {
+				trace("FINAL "+j+" "+steps[j].operator+" "+steps[j].lineNo);
 			}
 		}
 

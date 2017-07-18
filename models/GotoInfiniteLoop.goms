@@ -1,1 +1,1 @@
-createstate state1 off* This goto loop will execute the max amount of times (20 jumps) before haltingGoal look.Look at objectgoto goal look.Point at object *Note how this will only happen after the loop
+createstate state1 off* This goto loop will execute the max amount of times (20 jumps) before haltingGoal look.Look at objectif state1 offgoto goal lookendifGoal point.Point at object *Note how this will only happen after the loop
