@@ -50,6 +50,7 @@ package classes {
 		private static var cycleTime: Number;
 
 		public static var stackOverflow: Boolean = false;
+		public static var errorsExist: Boolean = false;
 
 		public static function processGOMS(): Array {
 			maxEndTime = 0;
@@ -85,6 +86,7 @@ package classes {
 			$.ifStack = []; // clear out the $.ifStack
 
 			SyntaxColor.typing = false; // this lets SyntaxColor know that the model was refreshed
+			trace("generate");
 			generateStepsArray();
 
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps			
@@ -94,6 +96,7 @@ package classes {
 
 
 		private static function generateStepsArray() {
+			var errors:int = 0;
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
 			var endIndex: int = codeLines[0].length;	
@@ -130,6 +133,8 @@ package classes {
 					if (syntaxArray[5] == false && stepOperator.length > 0) { //if there are no errors in the line and an operator exists...
 						var s:Step = new Step (indentCount, methodGoal, methodThread, stepOperator, getOperatorTime(stepOperator, stepTime, stepLabel), getOperatorResource(stepOperator), stepLabel, lineIndex, 0, chunkNames);
 						steps.push(s); 
+					} else {
+						errors++;
 					}
 				}
 				beginIndex = endIndex + 1;
@@ -138,7 +143,10 @@ package classes {
 
 			// The goto steps need to be evaluated first since it requires all the steps
 			// including the goal steps.
-			evaluateGotoSteps();
+			//trace("errors "+errors);
+			if (errors == 0) {
+				evaluateGotoSteps();
+			}
 			removeGoalSteps();
 			removeBranchSteps();
 			setPrevLineNo();
@@ -184,12 +192,12 @@ package classes {
 					var goalIndex:int = -1;
 					var goalEndIndex:int = -1;
 					for (var j:int = 0; j < steps.length; j++) {
-						if (steps[j].lineNo == $.goalTable[step.label].lineNo){
+						if (steps[j].lineNo == $.goalTable[step.label].lineNo) {
 							goalIndex = j;
 						}	
-						if (steps[j].lineNo == $.goalTable[step.label].end){
+						if (steps[j].lineNo == $.goalTable[step.label].end) {
 							goalEndIndex = j;
-						}	
+						}
 					}
 					// if the goto forms a loop get inline steps for the loop and insert them
 					if (goalIndex < gotoIndex) {
@@ -203,7 +211,7 @@ package classes {
 						stackOverflow = false;
 						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, steps);
 						// SyntaxColor will set this if there was an infinite loop while evaluating
-						if (stackOverflow){
+						if (stackOverflow) {
 							$.errors[steps[gotoIndex].lineNo] = "I ran into an infinite loop. Make sure this loop terminates.";
 							break;
 						} 

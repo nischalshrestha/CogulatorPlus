@@ -85,6 +85,7 @@ package classes  {
 
 		
 		private function showHintsCHI(evt:MouseEvent) {
+			SyntaxColor.hintHoverOver = true;
 			currentHint = 0;
 			_hintsCHI.visible = true;
 			_scrollBar.addEventListener(ScrollEvent.SCROLL, scrolled);
@@ -93,6 +94,7 @@ package classes  {
 		
 		
 		public function hideHintsCHI(event = null) {
+			SyntaxColor.hintHoverOver = false;
 			currentHint = 0;
 			_hintsCHI.visible = false;
 			_highlighter.visible = false;

@@ -54,6 +54,7 @@ package classes {
 		static var branches:Array = ["if", "endif", "goto", "createstate", "setstate"];
 		static var errorInLine:Boolean = false;
 
+		static var hintHoverOver:Boolean = false;
 		static var typing:Boolean = false;
 		private static var MAX_JUMPS: int = 20;
 
@@ -191,8 +192,11 @@ package classes {
 				}
 			} else return new Array(0, "goal", "", "", "", false, false, []); //returning true here means it won't be included in the interleaving process if it's a comment
 					
-			if (errorInLine == false && lineIsInErrors == true) errorFixed = true; //true means an error was fixed
-			else errorFixed = false;
+			if (errorInLine == false && lineIsInErrors == true) {
+				errorFixed = true; //true means an error was fixed
+			} else {
+				errorFixed = false;
+			}
 						
 			return new Array(indents, operator, lineLabel, time, threadLabel, errorInLine, errorFixed, chunkNames);
 		}
@@ -293,11 +297,11 @@ package classes {
 				//CreateState name value extraStuff
 				//CreateState name
 				//Name already exists
-				if (tokens.length != 3) {
+				if (tokens.length != 3 && !typing && !hintHoverOver) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 2 arguments."
 					return true;
-				} else if ($.stateTable[tokens[1]] !== undefined && !typing) {
+				} else if ($.stateTable[tokens[1]] != undefined && !typing && !hintHoverOver) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
 					return true;
@@ -345,7 +349,7 @@ package classes {
 					}
 				}
 			} else if (operator == "endif") {
-				if (tokens.length != 1 && !typing) {
+				if (tokens.length != 1) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was not expecting any arguments."
 					return true;
@@ -373,6 +377,7 @@ package classes {
 				}
 				lineLabel = goalLabel;
 			}
+			
 			errorInLine = false;
 			return false;
 		}
