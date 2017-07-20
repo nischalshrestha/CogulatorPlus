@@ -377,8 +377,13 @@ package classes {
 			return false;
 		}
 
-		// Creates all the inline steps necessary for a goto loop so GomsProcessor can prepare its steps Array
-		public static function getInlineSteps(gotoIndex: int, goalIndex: int, goalObject: Object, steps: Array): Array {
+		// Purpose: Creates the inline steps for a goto loop so GomsProcessor can prepare its steps Array
+		// Input: 	gotoIndex, the index of the goto in the steps Array
+		//			goalIndex, the index in the goal index in the steps Array
+		//		  	steps, the steps Array passed in from GomsProcessor
+		// Output: The Array that holds all the inline steps
+		// SideEffect: Updates the state and if tables
+		public static function getInlineSteps(gotoIndex: int, goalIndex: int, steps: Array): Array {
 			// Check if it the goto can even be executed the first time through
 			var gotoLine:int = steps[gotoIndex].lineNo;
 			var withinIfIndex:int = withinIfBlock(gotoLine);
@@ -387,7 +392,6 @@ package classes {
 				var gotoExcluded:Boolean = unevaluatedLines.indexOf(gotoLine) != -1;
 				if (gotoExcluded) return [];
 			}
-			//trace("goal end "+goalObject.end);
 			// Grab the relevant goals
 			var goalSteps:Array = steps.slice(goalIndex+1, gotoIndex+1);
 			// Prepare a final array
@@ -419,9 +423,9 @@ package classes {
 					if (step.operator == "goto") {
 						var gotoExcludedIndex:int = unevaluatedLines.indexOf(step.lineNo);
 						var gotoExcluded:Boolean = gotoExcludedIndex != -1;
+						finalGoalSteps.splice(i, 1);
 						if (gotoExcluded) {
 							// Remove the goto line as well
-							finalGoalSteps.splice(i, 1);
 							breakout = true;
 						}
 					}
@@ -439,8 +443,11 @@ package classes {
 			return finalGoalSteps;
 		}
 
-		// updates the state table with new inlined steps for goto loops
-		// takes in the relevant goal steps and an offset to update lineNos for new entries
+		// Purpose: Updates the state table with new inlined steps that are create/setstates for goto
+		// Input: goalSteps, the relevant steps Array
+		//		  offset, the amount to update the line numbers for old state objects
+		// Output: None
+		// SideEffect: Updates the state table with new inlined steps that are create/setstates
 		public static function addInlineStateChanges(goalSteps: Array, offset: int): void {
 			for (var i:int = 0; i < goalSteps.length; i++) {
 				var step:Step = goalSteps[i];
@@ -487,7 +494,10 @@ package classes {
 			}
 		}
 
-		// Returns the ifBlock Object given the ifLine
+		// Purpose: Returns the ifBlock Object given the ifLine
+		// Input: ifLine, the line number of the ifBlock
+		// Output: The ifBlock if found, else null
+		// SideEffect: None
 		public static function findIfBlock(ifLine: int): Object {
 			for (var i = 0; i < $.ifStack.length; i++) {
 				if ($.ifStack[i].ifLine == ifLine) {
@@ -497,7 +507,10 @@ package classes {
 			return null;
 		}
 
-		// Returns the createstate/setstate Object given the ifLine
+		// Purpose: Returns the createstate/setstate (state) Object that matches the given line number
+		// Input: lineNo, the line number in question
+		// Output: The state object that matches that line whether it's createstate or setstate
+		// SideEffect: None
 		public static function findStateChangeIndex(lineNo: int): Object {
 			for (var key: Object in $.stateTable) {
 				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
@@ -663,10 +676,10 @@ package classes {
 				var tokens: Array = frontTrimmedLine.split(' ');
 				if (tokens[0] == "if") { //Handles nested ifs
 					var ifObject:Object = new Object();
-						ifObject.ifLine = i;
-						ifObject.key = tokens[1];
-						ifObject.value = tokens[2];
-						ifObject.truth = true;
+					ifObject.ifLine = i;
+					ifObject.key = tokens[1];
+					ifObject.value = tokens[2];
+					ifObject.truth = true;
 					//trace("pushing if on line "+i);
 					ifIndices.push(ifObject);
 					numIfs++; //for each if found, it must find an additional endif
@@ -749,8 +762,7 @@ package classes {
 					var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
 					var goalObject = new Object();
 					goalObject.lineNo = i;
-					goalObject.start = i+1;
-					goalObject.end = determineGoalEnd(goalObject.start, goalName, lines);
+					goalObject.end = determineGoalEnd(goalObject.lineNo, goalName, lines);
 					$.goalTable[goalName] = goalObject;
 				}
 			}

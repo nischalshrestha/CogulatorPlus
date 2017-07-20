@@ -149,7 +149,6 @@ package classes {
 			for (var i: int = steps.length - 1; i > -1; i--) {
 				if (steps[i].operator == "goal" || steps[i].operator == "also") steps.splice(i, 1);
 			}
-
 		}
 
 		// Purpose: Removes all steps that are within if blocks that were false, as well as the
@@ -175,7 +174,6 @@ package classes {
 		// Output: none
 		// SideEffect: Inserts and removes items from the steps Array as needed
 		public static function evaluateGotoSteps(): void {
-			var inlineItems:int = 0;
 			var inlineIndex:int = 0;
 			for (var i:int = 0; i < steps.length; i++) {
 				var step:Step = steps[i];
@@ -203,9 +201,12 @@ package classes {
 							emptyLines = countEmptyLines(goalIndex, goalEndIndex);
 						}
 						stackOverflow = false;
-						//trace("this must be goto "+steps[gotoIndex].operator);
-						//trace("Goal "+steps[goalIndex].operator+" "+$.goalTable[step.label].start + " "+$.goalTable[step.label].end);
-						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, $.goalTable[step.label], steps);
+						var inlineSteps:Array = SyntaxColor.getInlineSteps(gotoIndex, goalIndex, steps);
+						// SyntaxColor will set this if there was an infinite loop while evaluating
+						if (stackOverflow){
+							$.errors[steps[gotoIndex].lineNo] = "I ran into an infinite loop. Make sure this loop terminates.";
+							break;
+						} 
 						// This replaces the current element with the next
 						if (steps[i+1] != undefined) {
 							var newStep:Step = steps[i+1].clone();
@@ -219,15 +220,11 @@ package classes {
 						if (inlineSteps.length > 0){
 							inlineIndex = i;
 							i = i + inlineSteps.length;
-							inlineItems = inlineSteps.length;
 						}
-						// SyntaxColor will set this if there was an infinite loop while evaluating
-						if (stackOverflow) break;
 						// The index from which we started inlining
-						var afterInlineIndex:int = inlineIndex + inlineItems;
+						var afterInlineIndex:int = i-1;
 						// The offset for the remainder of steps has to be the total number of new items plus emptylines
-						var toIncrement:int = steps[afterInlineIndex-1].lineNo + emptyLines;
-						//trace("toIncrement "+toIncrement);
+						var toIncrement:int = steps[afterInlineIndex].lineNo + emptyLines;
 						// If there were inlined steps inserted, make sure to update lineNos on any remaining steps 
 						for (var j:int = afterInlineIndex; j < steps.length; j++, toIncrement++) {
 							steps[j].lineNo = toIncrement;
@@ -242,7 +239,10 @@ package classes {
 			}	
 		}
 
-		// Counts up any empty lines between two line indices
+		// Purpose: Counts up any empty lines between two line indices
+		// Input: optional start and end indices to look at empty lines in a range
+		// Output: an int representing the count of empty lines in the range or whole model
+		// SideEffect: None
 		private static function countEmptyLines(start: int = int.MIN_VALUE, end: int = int.MAX_VALUE): int {
 			if (steps.length <= 1) return 0;
 			var count:int = 0;
