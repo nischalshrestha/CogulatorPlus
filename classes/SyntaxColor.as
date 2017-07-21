@@ -224,6 +224,7 @@ package classes {
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
 			// then evaluate what the operator is error handle based on the type of operator
 			index = findNextItem(endIndex, lineTxt); 
+			
 			endIndex = (beginIndex + lineTxt.length);
 
 			var tokens: Array = lineTxt.split(' ');
@@ -234,7 +235,9 @@ package classes {
 						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
 					} else {
 						createState(lineNum, tokens[1], tokens[2]);
-						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+						if (endIndex > (index + beginIndex)) {
+							$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+						}
 					}
 					break;
 				case "setstate":
@@ -294,6 +297,7 @@ package classes {
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			var lines:Array = $.codeTxt.text.split("\r");
 			tokens = tokens.filter(noEmpty);
+
 			if (operator == "createstate" && !typing && !hintHoverOver && !operatorHoverOver) {
 				//CreateState name value extraStuff
 				//CreateState name
@@ -369,7 +373,7 @@ package classes {
 				}
 				// Index all goals defined and check if goal exists
 				indexGoalLines(lines);
-				var goalLabel: String = tokens.slice(2, tokens.length).join(" ").toLowerCase();
+				var goalLabel: String = tokens.slice(2, tokens.length).join(" ");
 				var goalLine = $.goalTable[goalLabel];
 				if (goalLine == undefined) {
 					errorInLine = true;
@@ -546,7 +550,7 @@ package classes {
 						parentIfBlock = $.ifStack[parentIfIndex];
 					}
 					// if so, check if that parent if block is false
-					if (parentIfBlock != null && !parentIfBlock.truth) {
+					if (parentIfIndex != -1 && !parentIfBlock.truth) {
 						// if parent if block is false, we're done. 
 						// invalidate the if line and add unevaluated lines
 						gatherUnevaluatedLines(i, unevaluatedLines);
@@ -576,7 +580,7 @@ package classes {
 			// if block is no longer valid
 			$.ifStack[ifBlockIndex].truth = false; 
 			for (var j = $.ifStack[ifBlockIndex].ifLine; j <= $.ifStack[ifBlockIndex].endIfLine; j++) {
-				if (unevaluatedLines.indexOf(j)) unevaluatedLines.push(j);
+				if (unevaluatedLines.indexOf(j) == -1) unevaluatedLines.push(j);
 			}
 			// find any create state, state within this if block and set them to invalid
 			invalidateStateChanges($.ifStack[ifBlockIndex].ifLine);
@@ -594,6 +598,7 @@ package classes {
 					if (parentIfIndex != -1) {
 						var ifBlockIndex:int = $.ifStack[parentIfIndex].ifLine;
 						if (ifBlockIndex === ifLine) {
+							//trace("invalidate "+$.stateTable[key][i].lineNo);
 							$.stateTable[key][i].valid = false;
 						}
 					}
@@ -608,7 +613,6 @@ package classes {
 		// SideEffect: none
 		public static function withinIfBlock(lineNo: int): int {
 			for (var i = $.ifStack.length-1; i > -1; i--) {
-			//	trace("ifstack if "+$.ifStack[i].ifLine + ", endif "+$.ifStack[i].endIfLine);
 				if ($.ifStack[i].ifLine < lineNo && $.ifStack[i].endIfLine > lineNo) {	
 					return i;
 				}
@@ -642,7 +646,7 @@ package classes {
 		// Output: true if condition is true, false otherwise
 		// SideEffect: none
 		public static function evaluateIfStatement(tableValue: String, ifValue: String): Boolean {
-			return (tableValue === ifValue);
+			return (tableValue == ifValue);
 		}
 
 		// We might be able to remove this for checking infinite loops since we have $.ifStack
@@ -653,7 +657,7 @@ package classes {
 		// SideEffect: none
 		public static function nextIfLine(lines: Array, lineNum: int):int {
 			for (var i = lineNum; i < lines.length; i++) {
-				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
+				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
 				if (tokens[0].toLowerCase() == "if") {
 					return i; // once the next if is found, return the index
@@ -678,9 +682,9 @@ package classes {
 			var numEndIfs: int = 0;
 			var ifIndices:Array = new Array();
 			for (var i = lineNum; i < lines.length; i++) {
-				var frontTrimmedLine: String = clean(lines[i].toLowerCase());
+				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "if") { //Handles nested ifs
+				if (tokens[0].toLowerCase() == "if") { //Handles nested ifs
 					var ifObject:Object = new Object();
 					ifObject.ifLine = i;
 					ifObject.key = tokens[1];
@@ -689,11 +693,12 @@ package classes {
 					//trace("pushing if on line "+i);
 					ifIndices.push(ifObject);
 					numIfs++; //for each if found, it must find an additional endif
-				} else if (tokens[0] == "endif") {
+				} else if (tokens[0].toLowerCase() == "endif") {
 					numEndIfs++;
 					var ifObject = ifIndices.pop();
 					//trace("poping if on line "+ifLine);
 					if (numEndIfs == numIfs) {
+						//trace("found endif on line "+i + " for if line "+ifObject.ifLine);
 						ifObject.endIfLine = i;
 						$.ifStack.push(ifObject);
 						return i;
@@ -733,9 +738,10 @@ package classes {
 		private static function setState(lineNo: int, line: Array): void {
 			var state:Object = new Object();
 			state.lineNo = lineNo;
-			state.key = clean(line[1]);
+			state.key = line[1];
 			state.value = line[2];
 			state.valid = true;
+		//	trace("setting state at line "+lineNo+ " if "+state.key +" "+state.value+" "+state.valid);
 			if(line.length == 3){
 				// grab the scope list associated with the state and push the new scope in
 				$.stateTable[line[1]].push(state);
@@ -765,7 +771,8 @@ package classes {
 				var operator: String = tokens[0].toLowerCase();
 				if (operator == "goal") {
 					// Goal line assumed to be in the form "goal goal_name"
-					var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
+					//var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
+					var goalName = tokens.slice(1, tokens.length).join(" ");
 					var goalObject = new Object();
 					goalObject.lineNo = i;
 					goalObject.end = determineGoalEnd(goalObject.lineNo, goalName, lines);
@@ -944,7 +951,7 @@ package classes {
 		// Output: String: trimmed line 
 		// Example: "CreateState goal_name value"
 		public static function clean(s: String): String {
-			return trimColon(trimIndents(trim(s))).toLowerCase();
+			return trimColon(trimIndents(trim(s)));
 		}
 			
 		private static function trim(s: String): String {

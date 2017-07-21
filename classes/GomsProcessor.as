@@ -147,6 +147,7 @@ package classes {
 			}
 			removeGoalSteps();
 			removeBranchSteps();
+			//printSteps();
 			setPrevLineNo();
 
 		}
@@ -165,7 +166,7 @@ package classes {
 		private static function removeBranchSteps() {
 			var unevaluatedLines:Array = SyntaxColor.getUnevaluatedSteps();
 			var endifIndex:int = 0;
-			for (var i:int = steps.length - 1; i > -1; i--) {
+			for (var i:int = steps.length-1; i > -1; i--) {
 				var branchStep: int = SyntaxColor.branches.indexOf(steps[i].operator);
 				if (unevaluatedLines.indexOf(steps[i].lineNo) != -1) {
 					steps.splice(i, 1);	
@@ -236,10 +237,14 @@ package classes {
 							steps[j].lineNo = toIncrement;
 						}
 					} else if (goalIndex > gotoIndex) {
-						// if it's a jump simply cut everything from goto line to goal
+						// if it's a jump simply cut everything from goto line to goal if that goto is valid
+						// to evaluate
 						// Note: As it stands there is no notion of returning from original goal.
 						//		 Once a jump has been made the model will run from there onwards.
-						steps.splice(i, (goalIndex - gotoIndex));
+						var unevaluatedLines:Array = SyntaxColor.getUnevaluatedSteps();
+						if (unevaluatedLines.indexOf(steps[i].lineNo) == -1) {
+							steps.splice(i, (goalIndex - gotoIndex));
+						}
 					}
 				}
 			}	

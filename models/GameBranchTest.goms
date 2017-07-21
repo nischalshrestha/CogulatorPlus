@@ -1,0 +1,69 @@
+CreateState target1 isEnemy
+CreateState target2 isfriendly
+CreateState target3 isfriendly
+
+SetState target1 isEnemy
+SetState target2 isEnemy
+SetState target3 isEnemy
+
+Goal: visit target1
+.attend  target1
+.initiate eye-movement
+.saccade to target1 
+.Perceptual_processor perceive target1 (100 ms)
+.verify target1 (50 ms) 
+.If target1 isEnemy
+.initiate hand-movement
+.hands to target (301 ms)
+.touch target
+.SetState target1 isfriendly
+..If target1 isfriendly
+...If target2 isfriendly
+....If target3 isfriendly
+.....GoTo Goal: endOfLevel
+....EndIf
+...EndIf
+..EndIf
+.EndIf  
+
+*Goal: visit target2
+*.attend  target2
+*.initiate eye-movement
+*.saccade to target2 
+*.Perceptual_processor perceive target2 (100 ms)
+*.verify target2 (50 ms)
+*if target2 isEnemy
+*.initiate hand-movement 
+*.hands to target (301 ms)
+*.touch target
+*Setstate: target2 isfriendly
+*..If target1 isfriendly
+*...If target2 isfriendly
+*....If target3 isfriendly
+*.....GoTo Goal: endOfLevel
+*....EndIf
+*...EndIf
+*..EndIf
+*.EndIf
+*
+*Goal: visit target3
+*.attend  target3
+*.initiate eye-movement
+*.saccade to target3
+*.Perceptual_processor perceive target3 (100 ms)
+*.verify target3 (50 ms)
+*.If target3 isEnemy
+*. initiate hand-movement
+*. hands to target (301 ms)
+*. touch target
+*.SetState target3 isfriendly
+*..If target1 isfriendly
+*...If target2 isfriendly
+*....If target3 isfriendly
+*.....GoTo Goal: endOfLevel
+*....EndIf
+*...EndIf
+*..EndIf
+*.EndIf  
+
+Goal: endOfLevel
