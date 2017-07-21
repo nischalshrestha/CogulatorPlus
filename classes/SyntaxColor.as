@@ -226,7 +226,11 @@ package classes {
 			index = findNextItem(endIndex, lineTxt); 
 			endIndex = (beginIndex + lineTxt.length);
 
-			var tokens: Array = lineTxt.split(' ');
+			var tokens: Array = clean(lineTxt).split(' ');
+			//trace(lineTxt);
+			//trace(clean(lineTxt));
+			
+			
 			//Gets rid of empty tokens caused by whitespace
 			switch (operator) {
 				case "createstate":
@@ -944,7 +948,10 @@ package classes {
 		// Output: String: trimmed line 
 		// Example: "CreateState goal_name value"
 		public static function clean(s: String): String {
-			return trimColon(trimIndents(trim(s))).toLowerCase();
+			var trimmed:String = trimColon(trimIndents(trim(s))).toLowerCase();
+			//trace("Trimmed: " + trimmed);
+			return trimmed;
+			
 		}
 			
 		private static function trim(s: String): String {
