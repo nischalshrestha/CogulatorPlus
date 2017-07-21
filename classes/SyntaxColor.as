@@ -227,7 +227,11 @@ package classes {
 			
 			endIndex = (beginIndex + lineTxt.length);
 
-			var tokens: Array = lineTxt.split(' ');
+			var tokens: Array = clean(lineTxt).split(' ');
+			//trace(lineTxt);
+			//trace(clean(lineTxt));
+			
+			
 			//Gets rid of empty tokens caused by whitespace
 			switch (operator) {
 				case "createstate":
