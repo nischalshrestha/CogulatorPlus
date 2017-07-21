@@ -50,7 +50,6 @@ package classes {
 		private static var cycleTime: Number;
 
 		public static var stackOverflow: Boolean = false;
-		public static var errorsExist: Boolean = false;
 
 		public static function processGOMS(): Array {
 			maxEndTime = 0;
@@ -79,14 +78,13 @@ package classes {
 			resourceAvailability["cognitive"] = cognitiveArray;
 			resourceAvailability["hands"] = handsArray;
 
-
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
 			for (var key: Object in $.stateTable) delete $.stateTable[key]; // clear out all $.stateTable
 			for (var key: Object in $.goalTable) delete $.goalTable[key]; // clear out all $.goalTable
 			$.ifStack = []; // clear out the $.ifStack
 
 			SyntaxColor.typing = false; // this lets SyntaxColor know that the model was refreshed
-			trace("generate");
+			SyntaxColor.operatorHoverOver = false; // let SyntaxColor know it's okay to error handle createstates
 			generateStepsArray();
 
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps			
@@ -202,8 +200,8 @@ package classes {
 					// if the goto forms a loop get inline steps for the loop and insert them
 					if (goalIndex < gotoIndex) {
 						// Because steps array will skip empty lines and hence line numbers, we need to consider 
-						// any possible spaces between the first step and the gotoline as this will affect the 
-						// way the inlining.
+						// any possible spaces between the first step and the gotoline as this will affect what
+						// the inlining steps will be.
 						if (goalIndex != -1 && steps[goalIndex+1] != undefined) {
 							// Get number of spaces between goal and goto
 							emptyLines = countEmptyLines(goalIndex, goalEndIndex);

@@ -55,6 +55,7 @@ package classes {
 		static var errorInLine:Boolean = false;
 
 		static var hintHoverOver:Boolean = false;
+		static var operatorHoverOver:Boolean = false;
 		static var typing:Boolean = false;
 		private static var MAX_JUMPS: int = 20;
 
@@ -293,15 +294,15 @@ package classes {
 		private static function hasError(tokens: Array, lineNum:int): Boolean {
 			var lines:Array = $.codeTxt.text.split("\r");
 			tokens = tokens.filter(noEmpty);
-			if (operator == "createstate") {
+			if (operator == "createstate" && !typing && !hintHoverOver && !operatorHoverOver) {
 				//CreateState name value extraStuff
 				//CreateState name
 				//Name already exists
-				if (tokens.length != 3 && !typing && !hintHoverOver) {
+				if (tokens.length != 3) {
 					errorInLine = true;
 					$.errors[lineNum] = "I was expecting 2 arguments."
 					return true;
-				} else if ($.stateTable[tokens[1]] != undefined && !typing && !hintHoverOver) {
+				} else if ($.stateTable[tokens[1]] != undefined) {
 					errorInLine = true;
 					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
 					return true;
@@ -415,6 +416,7 @@ package classes {
 					var newLineNo:int = step.lineNo + offset*iter;
 					var newStep:Step = step.clone();
 					newStep.lineNo = newLineNo;
+					newStep.hint = false;
 					finalGoalSteps.push(newStep);
 				}
 				// Make changes to the $.ifStack and the $.stateTable according to new inline steps
@@ -520,7 +522,6 @@ package classes {
 			for (var key: Object in $.stateTable) {
 				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
 				for (var i = 0; i < scopeList.length; i++) {
-					//trace("sc No: "+scopeList[i].lineNo);
 					if (scopeList[i].lineNo == lineNo) {
 						return scopeList[i];
 					}
