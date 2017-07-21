@@ -775,7 +775,6 @@ package classes {
 				var operator: String = tokens[0].toLowerCase();
 				if (operator == "goal") {
 					// Goal line assumed to be in the form "goal goal_name"
-					//var goalName = frontTrimmedLine.toLowerCase().split("goal ")[1];
 					var goalName = tokens.slice(1, tokens.length).join(" ");
 					var goalObject = new Object();
 					goalObject.lineNo = i;
@@ -797,7 +796,7 @@ package classes {
 				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
 				var operator: String = tokens[0].toLowerCase();
-				var goal = frontTrimmedLine.toLowerCase().split("goal ")[1];
+				var goal = tokens.slice(1, tokens.length).join(" ");
 				if (operator == "goal" && goal != goalName) {
 					return end;
 				}
