@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <application xmlns="http://ns.adobe.com/air/application/23.0">
-    <id>com.bitsorific.cogulatorplus</id>
+    <id>cogulatorplus</id>
     <versionNumber>1.0.0</versionNumber>
     <filename>cogulatorplus</filename>
     <description></description>

@@ -267,7 +267,7 @@ package classes {
 		// Convenience function to print steps and their lineNos
 		public static function printSteps(): void {
 			for (var j:int = 0; j < steps.length; j++) {
-				trace("FINAL "+j+" "+steps[j].operator+" "+steps[j].lineNo);
+				trace("STEP "+j+" "+steps[j].operator+" "+steps[j].lineNo);
 			}
 		}
 
