@@ -1,0 +1,37 @@
+Branching Models
+
+	In order to give cogulator models some flexiblility, we've added in the ability to create branching behavior.  To do this, you need two pieces: a state, and the corresponding if-statement.  
+
+	States:
+
+	States work as flags.  You can compare any string to the saved value of a state.  To create a new state, you use the CreateState operator as shown.
+
+		CreateState state_name value
+
+	State names cannot contain spaces or other whitespace characters and must be unique.  The value cannot contain whitespace either. 
+
+	If you want to change the value of a state, you use SetState.  
+
+		SetState state_name value
+
+	SetState will overwrite the saved value with the new one.  If you it cannot find the state_name in question, the syntax color will turn red alerting you to the error.
+
+	You can use your states to create if-statements.
+
+		If state_name value
+		*Do Things here
+		EndIf
+
+	If the state_name/value pair matches a saved state, then the operators between the If and EndIf will be executed.  Otherwise, it will skip to the line after the EndIf.  Unlike the Goal syntax, the body of the if-statement is not indented further. Keep the same indentation that you would use even if the if-statement was not there.  
+
+	Finally, you can create loops with the GoTo statement.  
+
+		GoTo Goal: goal_name
+		
+	The goal_name must match exactly to how it appears in the model.  This statement finds the first occurance of the goal_name and continues the model from that point.  If you name a goal further down in the code, it will skip everything in between.  If you name a goal that appears earlier in the model it will create a loop.  (Be careful of infinite loops!)  Jumps are limited to 20 times in a single model.  If you exceed that number, the line will turn red (as if there is an error in it) and all additional GoTo statements will not be processed; instead the model will be in an error state, with an error message and it will need to be fixed. 
+
+
+
+
+
+

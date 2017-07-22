@@ -54,7 +54,6 @@ package {
 	import classes.FirstRun;
 	import classes.IndentComment;
 	import classes.HintsTool;
-	import classes.AverageTimeButton;
 	//import classes.AppSettings;
 	import classes.CustomScrollBar;
 	import classes.AppUpdater;
@@ -132,8 +131,6 @@ package {
 		var settingsLoaded = false;
 		var firstRunComplete = false;
 
-		var calculationRunning = false;
-
 		public function Main() {
 			$.stage = this.stage;
 			$.codeTxt = codeTxt;
@@ -159,9 +156,6 @@ package {
 			settingsPanel.visible = false;
 			codeTxt.tabEnabled = false;
 			line.width = 710;
-
-			// Testing new button
-			averageTimeBtn.addEventListener(MouseEvent.CLICK, onAverageClick);
 
 			//	- check for update -
 			//AppUpdater.updateCheck();
@@ -230,13 +224,6 @@ package {
 			
 			//  - listen for close application to save the last open model
 			stage.nativeWindow.addEventListener(Event.CLOSING, closeApplication, false, 0, true);  
-		}
-		
-		// Example handler for average time //todo Substitute average function once merged
-		function onAverageClick (evt:MouseEvent):void {
-			if (!calculationRunning) {
-				averageModelTimes();
-			}
 		}
 
 		//when the window size data has been loaded
@@ -503,10 +490,6 @@ package {
 		function respondToCustomKeyBoardCommands (evt:KeyboardEvent):void {
 			if (evt.ctrlKey) {
 				switch ( evt.keyCode ) {
-					case Keyboard.P :
-						if (!calculationRunning) {
-							averageModelTimes();
-						}
 					case Keyboard.S : //if control+s for save 
 						saveButton.gotoAndPlay(3);
 						modelsSideBar.saveModel();
@@ -650,58 +633,6 @@ package {
 				newModelCHI.collectionField.tabIndex = 1;
 				newModelCHI.modelField.tabIndex = 2;
 			}
-		}
-
-		
-		
-		//Purpose: Runs the model multiple times in order to get an average, 
-		//			min and max completion times. 
-		//Input: None
-		//Output: none (should output to GUI eventually)
-		//SideEffect:  Should be none.  Update if one is found	
-		//Note:only relevant if using probability in Cogulator plus
-		function averageModelTimes(){
-			var minTime:Number = Number.POSITIVE_INFINITY;
-			var maxTime:Number = Number.NEGATIVE_INFINITY;
-			var averageTime = 0;
-
-			
-			for( var i:int = 0; i < 10; i++) {
-				var vars:Array = GomsProcessor.processGOMS();
-				var curRunTime = 0;
-				var interSteps:Array = vars[3];
-				for(var j:int = 0; j<interSteps.length; j++){
-					var step:Step = interSteps[j];
-					if (step.endTime > curRunTime){
-						curRunTime = step.endTime;
-					}
-				}
-				//var curRunTime:Number = vars[3].;
-
-				//replace min if needed
-				if(curRunTime < minTime){
-					minTime = curRunTime;					
-				} 
-				
-				//replace max if needed
-				if(curRunTime > maxTime){
-					maxTime = curRunTime;
-				}
-				
-			
-				//keeps a running average
-				averageTime = ((averageTime*i) + curRunTime)/(i+1)
-				
-				
-				trace("Cur: " + curRunTime);
-				trace("Min: " + minTime);
-				trace("Max: " + maxTime);
-				trace("Ave: " + averageTime);
-			}
-				trace("FinalMin: " + minTime);
-				trace("FinalMax: " + maxTime);
-				trace("FinalAve: " + averageTime);
-			
 		}
 
 		//		- Gantt Chart Management

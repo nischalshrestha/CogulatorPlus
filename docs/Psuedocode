@@ -1,0 +1,248 @@
+Try opening this in a text editor and zoom out until indented lines fit the window
+
+On the refactor:
+
+I have tried to maintain separation of concerns for SyntaxColor and GomsProcessor, I will call them
+Syntax and Goms for short. When it comes to syntax parsing, error handling, and highlighting, all 
+that logic now resides in SyntaxColor. Think of Syntax as doing the prep work that is required 
+for Goms to do Goto inlining and If evaluations.
+
+First some description of new Data Structures (all of which are global variables and handled by Syntax):
+
+$.stateTable
+
+What: a Dict whose key is the string of the state, and the value is an Array. Each item in the
+Array is an instance of a createstate or setstate represented by an Object that gives us information
+about the line number, the key and the value, and a valid attribute that tells us whether it is valid for an If
+to check against; for ex, if the line was in a previous If that was false, valid would be false. The Array is bookkeeping so that when it comes time to evaluate an If condition, we can use it to grab the right createstate or setstate declaration in the model and not one after the if block or one that was withing an if block that was evaluated to false. The Array and the valid attribute is to avoid this issue:
+
+CreateState state true
+If state true <- This will evaluate to the CreateState after Endif
+..
+EndIf
+CreateState state false
+
+When it gets filled: This table gets filled by Syntax as we collect all valid createstate / setstate lines. Anytime
+we come across the same key twice, we simply push a new Object with all the same attributes as the last Object
+except with a different line number to distinguish it.
+
+$.goalTable
+
+What: a Dict whose key is the goal label (case sensitive) and the value is a goal Object which represents
+the line number it was declared on and where the goal ends. The goal end is determined by figuring out the last
+valid step until either another Goal is encountered, in which case the last valid step is the goal end, or the
+length of the model if it is the only goal.
+
+When it gets filled: This gets filled by Syntax when we gather goals. We gather goals with indexGoalLines() every
+time we are checking the goto syntax in order to determin if the goto is rerring to an existing goal.
+
+$.ifStack
+
+What: an Array that holds Object(s) that represent an If block. The Object stores info about the if line number,
+the endif line number, the key and the value that it's testing, and a truth attribute that tells whether or not
+the If came true or false; true by default. When a valid If line and a corresponding EndIf line is
+found, we create a new Object with those properties and push it on the stack. Since the model is parsed top to 
+bottom, this will store all the If blocks in order which is convenient when it comes time to fetch them later.
+
+The flow:
+
+From a high level, Goms lets Syntax do syntax parsing and setting errors on the $.error Dict.
+
+Syntax, as it does parsing prepares 3 tables: $.stateTable, $.goalTable, $.ifStack as described above.
+If it reports an error, it will store a message on that line and mark that line as being errored, similar
+to how it is done with an operator and the modeler will need to fix it before moving on.
+
+If there are no errors, Goms will proceed with stripping out any unevaluated lines. 
+
+The inlining or skipping steps for the Goto lines is done first as we'll still need the goals. evaluateGotoSteps() is responsible for this and it will go through the Steps Array and do one of two things. If the goto forms a loop, where the goal is above the goto, it will ask Syntax to getUnevaluatedLines(). At a high level Syntax evaluates the loop body and generates new Step(s), evaluates them and returns them once the Goto that formed the loop has been excluded at some point. 
+If we're dealing with a jump, simply splice all steps from [gotoline, goal_to_jump_to]. After the goto process is done,
+then the goals can be removed since they are no longer required.
+
+After goto is taken care, we finally have all the steps we need to evaluate. Similar to how removeGoalSteps() removes
+all the Goal steps, for CogulatorPlus, the removeBranchLines() removes all the steps that are unevaluated because it 
+was in an If block that was evaluated to false or it's simply one of the new syntax.
+
+After removeBranchLines(), the Steps Array is ready for the normal flow of interleaving and processing and we are done
+
+Psuedocode (Covers the whole flow in more detail)
+
+Goms:
+
+Reset all the tables: $.stateTable, $.goalTable, $.ifStack
+Solarize each line with generateStepsArray() loop
+
+Syntax:
+
+Execute solarizeLineNum() and check if the operator falls under CogulatorPlus syntax
+If not, follow the normal parsing and highlighting procedure for the line (goal or operator)
+If so, call solarizeBranchLine(), an almost identical method to the other solarizeLine methods with some differences
+
+solarizeBranchLine():
+
+Tokenize and gather proper indices for highlighting
+Check the operator and error handle accordingly via hasError(), given line number and all the lines of the text
+	If it's a createstate / setstate, create new entries in $.stateTable when valid
+	If it's an If, find matching endif and create new entries in $.ifStack when valid
+	If it's a goto, indexGoalLines() to gather goals and check if goal references is correct
+	If hasError() reports false, highlight the syntax magenta and the rest black,
+	Else, highlight the line red, set errorInLine and set the error message on that line num in $.errors
+
+Goms:
+
+Check if returned Array from solarizeLineNum() is in error or not.
+If in error, increment count of errors found with variable errors.
+Else, create the new step and push it on Steps Array
+
+Once loop in generatStepsArra() completes, check errors count variable.
+If there are errors, do not evaluate gotos, try evaluating everything else
+Else evaluateGotoSteps()
+
+evaluateGotoSteps():
+
+	For each Step in steps Array
+
+	If Step is a "goto":
+
+	Find the goal index in the Steps Array for the goto
+	Check if goto is a loop or a jump by checking whether the goal index < goto index, vice-versa
+	If goto forms a loop, splice the goto line and replace it with what will be the line after inlining
+	Call Syntax to getInlineSteps() and store the returned Array inlineSteps
+
+	Syntax:
+
+	getInlineSteps():
+
+	Check whether goto can even be executed in the first place by seeing if it's in an ifBlock
+	If in ifBlock and ifBlock is false return an empty Array
+	Else proceed
+
+	Initilize all variables needed for the inlining process:
+
+	Create an Array, goalSteps, that represents all the steps relevant in the loop body
+	Create an Array, finalGoalSteps, that represents all inline steps we need
+	Create variable, offset, that indicates the amount to increment the line numbers on new Step(s) 
+	Create variable, currentGotoLine, that indicates where the current goto line is as we iterate and create new Step(s)
+	Create counter variable, iter, to keep track of how many iterations we've done, starts at 1 since loop body
+	naturally executes at least once if it does execute at all
+	Create boolean variable, breakout, to know when to break out of the process of creating new steps and evaluating them
+
+	Now go through and start creating new Step(s) and evaluate them to see if currentGotoLine is excluded 
+
+	While breakout is false:
+
+		For each Step in goalSteps
+			Create new clone Step(s) with an updated line number according to its previous line number and
+			the current offset
+			Push each new Step onto the finalGoalStep Array
+			Call addInlineStateChanges()
+
+			addInlineStateChanges():
+
+				For each Step in goalSteps
+
+				If Step is an If
+				Create a new clone If object with a new if and endif line, according to its current lines and offset
+				Default the truth attribute to be true
+				Push to $.ifStack so that we are up to date with our Ifs given new Step(s)
+
+				If Step is an Endif
+				Create a new clone EndIf object with a new if and endif line, according to its current lines and offset
+				Default the valid attribute to be true
+				Push to $.stateTable so we are up to date with our new CreateState/SetState(s)
+
+
+	Once our $.ifStack and $.stateTable are up to date, get all unevaluated lines via getUnevaluatedLines() with the finalGoalSteps and store the result in unevaluatedLines Array
+
+	For each Step in finalGoalSteps:
+
+		If Step is a goto
+			Cut out the Step
+			If it was in the unevaluatedLines Array, set breakout to true
+
+	Update iter counter by 1
+	Check if iter >= MAX_JUMPS of 20
+	If so, set a flag on GomsProcessor called stackOverflow to true and break
+	Else, update the currentGotoLine with the new offset
+
+	Return the finalGoalSteps
+
+	Goms:
+
+	Go through and insert all the inlineSteps returned by Syntax.getInlineSteps() if any
+
+	For each Step in inlineSteps
+		insert into the goto index the Step
+
+	Update the index pointer for the loop so that we resume processing Steps after inline Steps
+	Determine if there were empty lines within the loop body via countEmptyLines()
+	Take result from countEmptyLines() and use it to calculate the offset for the line numbers for Steps following the
+	inline steps since they will need to be updated if inlineSteps were inserted
+	Update the rest of the Step(s) with the right line number according to its current line number and the appropriate offset.
+
+	If goto is a jump and can be executed (not in an if that's false), simply splice all steps from goto index to the goal index.
+
+
+Now removeGoalSteps()
+
+removeBranchSteps():
+
+	Get all unevaluatedLines and store them in Array by calling getUnevaluatedSteps in Syntax
+
+	Syntax:
+
+	getUnevaluatedSteps(start line, end line):
+
+		Create an Array, unevaluatedLines to gather line numbers to exclude
+		For each if object in the $.ifStack and in range according to start and end line:
+
+			Check if the If object is already within an If block that is false
+			If in a parent if block, 
+				gather all unevaluated lines included the If and Endif via gatherUnevaluatedLines()
+				gatherUnevaluatedLines(unevaluatedLines):
+
+					Set the if block's truth attribute to be false
+					For each index from if to endif, push to the passed in Array if line number has not been pushed in
+					return unevaluatedLines
+				continue to the next If Stack
+
+
+			If not in a parent if block
+
+				Grab the latest state object from $.stateTable for the particular key the if is testing
+				Use that state object's value to check against the value of the If 
+				If evaluation is false then gatherUnevaluatedLines()
+				Else continue to the next If stack
+
+		return unevaluatedLines
+
+	Goms:
+
+	Now iterate through the Steps Array and splice
+		if Step's line number is in getUnevaluatedSteps Or
+		if Step's operator is one of the CogulatorPlus operators
+
+After this, let Goms follow normal procedures of interleaving and processing.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
