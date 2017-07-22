@@ -30,8 +30,9 @@ package  classes {
 		public var goal, thred, operator, resource, label:String;
 		public var indentCount, lineNo:int, prevLineNo:int;
 		public var chunkNames:Array;
+		public var hint:Boolean;
 		
-		public function Step(ic:int, gl:String, thrd:String, oprtr:String, tm:Number, rsrce:String, lbl:String, ln:int, pln:int, cn:Array) {
+		public function Step(ic:int, gl:String, thrd:String, oprtr:String, tm:Number, rsrce:String, lbl:String, ln:int, pln:int, cn:Array, hintValid:Boolean = true) {
 			// constructor code
 			indentCount = ic;
 			goal = gl;
@@ -43,10 +44,27 @@ package  classes {
 			lineNo = ln;
 			prevLineNo = pln;
 			chunkNames = [];
+			hint = hintValid;
 		
 			for each (var chunkName in cn) { //create new array to save value and not reference to array
 				chunkNames.push(chunkName);
 			}
+		}
+
+		public function clone(): Step {
+			return new Step(
+				indentCount,
+				goal,
+				thred,
+				operator,
+				time,
+				resource,
+				label,
+				lineNo,
+				prevLineNo,
+				chunkNames,
+				hint
+				);
 		}
 
 	}

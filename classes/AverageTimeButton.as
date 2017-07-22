@@ -8,7 +8,7 @@
 		
 		public function AverageTimeButton() {
 			// constructor code
-			trace("AverageTimeButton created!");
+			//trace("AverageTimeButton created!");
 		}
 
 	}

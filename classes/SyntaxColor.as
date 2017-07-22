@@ -27,12 +27,12 @@ package classes {
 	import classes.WrappedLineUtils;
 	import classes.SolarizedPalette;
 	import com.inruntime.utils.*;
-
 	
 	public class SyntaxColor {
 		private static var $:Global = Global.getInstance();
 		private static var indents:int;
 		private static var goalLine:Boolean;
+		private static var branchLine:Boolean;
 		private static var operator:String;
 		private static var lineLabel:String;
 		private static var time:String;
@@ -50,9 +50,15 @@ package classes {
 		private static const magenta:TextFormat = new TextFormat();
 		private static const errorred:TextFormat = new TextFormat();
 		
-		static var methods:Array = ["goal", "also", "as", "if", "endif", "goto", "createstate", "setstate"];
+		static var methods:Array = ["goal", "also", "as"];
+		static var branches:Array = ["if", "endif", "goto", "createstate", "setstate"];
 		static var errorInLine:Boolean = false;
-		
+
+		static var hintHoverOver:Boolean = false;
+		static var operatorHoverOver:Boolean = false;
+		static var typing:Boolean = false;
+		private static var MAX_JUMPS: int = 20;
+
 		black.color = SolarizedPalette.black;
 		cyan.color = SolarizedPalette.cyan;
 		grey.color = SolarizedPalette.grey;
@@ -77,8 +83,8 @@ package classes {
 			}
 		}
 		
-		
 		public static function solarizeSelectedLine():Boolean {
+			typing = true;
 			//get line number based on caret position
 			var lineNumber = WrappedLineUtils.getLineNumber($.codeTxt, $.codeTxt.caretIndex);
 				lineNumber--;
@@ -97,39 +103,6 @@ package classes {
 			
 			return (solarizeLineNum(lineNumber, begindex, endex, chunkNamedInError)[6]);
 		}
-		
-		//Purpose:  Color the line specified.  Created for Cog+ functionality
-		//Input: line number to be colorized.
-		//Output: none.
-		//SideEffect: The line should be colored.  Other side effects are TBD.
-		public static function solarizeLine(lineNumber:int) {
-			//get line number based on caret position
-			var begindex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);
-			var endex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNumber);
-			
-			//chunkErrors are a special case because they can't be identified until after the GomsProcessor initiates WM modeling
-			//chunkErrors are identified in WorkingMemory.as, which calls a custom function here (solarizeChunkAtLineNum) to color the errors
-			var chunkNamedInError:String = "";
-			var errMessage = $.errors[lineNumber];
-			if (errMessage != undefined) if (errMessage.indexOf("memory") > -1) {
-				var leftAngleIndex = errMessage.indexOf("<");
-				var rightAngleIndex = errMessage.indexOf(">");
-				chunkNamedInError = errMessage.substring(leftAngleIndex, rightAngleIndex);	
-			}	
-			
-			solarizeLineNum(lineNumber, begindex, endex, chunkNamedInError)[6];
-		}
-
-
-		public static function ErrorColorLine(lineNumber:int){
-			
-			//get line number based on caret position
-			var beginIndex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);
-			var endIndex = WrappedLineUtils.getLineEndIndex($.codeTxt, lineNumber);
-			
-			$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
-			}
-		
 			
 		//0: Number of Indents
 		//1: Operator
@@ -139,8 +112,8 @@ package classes {
 		//5: Error in line boolean
 		//6: Error fixed in line boolean - the one non-Goms processor calls are looking for
 		//7: Array of chunk names "<>"
-		
 		public static function solarizeLineNum(lineNum:int, beginIndex:int = -1, endIndex:int = -1, chunkNamedInError:String = ""):Array {
+
 			time = "";
 			chunkNames.length = 0;
 			
@@ -187,6 +160,7 @@ package classes {
 						operator = lineTxt.substring(index, endIndex).toLowerCase();
 						operator = trim(operator);
 						goalLine = false;
+						branchLine = false;
 					for each (var method in methods) {
 						if ( operator == method  ) {
 							goalLine = true;
@@ -197,13 +171,33 @@ package classes {
 							break;
 						}
 					}
-					if (goalLine) solarizeGoalLine(lineTxt, index, lineNum, beginIndex, endIndex, lineStartIndex);
-					else solarizeOperatorLine(lineTxt, index, lineNum, beginIndex, endIndex, lineStartIndex, chunkNamedInError);
+					// check if it's a branch for Cog+
+					for each (var branch in branches) {
+						if ( operator == branch  ) {
+							branchLine = true;
+							break;
+						} else if (operator.substring(0,operator.length - 1) == branch) { 
+							operator = operator.substring(0, operator.length - 1); // get rid of colon
+							branchLine = true;
+							break;
+						}
+					}
+					// index is the operator, endIndex the item after operator
+					if (branchLine) {
+						solarizeBranchLine(lineTxt, index, lineNum, beginIndex, endIndex, lineStartIndex);
+					} else if (goalLine) {
+						solarizeGoalLine(lineTxt, index, lineNum, beginIndex, endIndex, lineStartIndex);
+					} else {
+						solarizeOperatorLine(lineTxt, index, lineNum, beginIndex, endIndex, lineStartIndex, chunkNamedInError);
+					}
 				}
 			} else return new Array(0, "goal", "", "", "", false, false, []); //returning true here means it won't be included in the interleaving process if it's a comment
 					
-			if (errorInLine == false && lineIsInErrors == true) errorFixed = true; //true means an error was fixed
-			else errorFixed = false;
+			if (errorInLine == false && lineIsInErrors == true) {
+				errorFixed = true; //true means an error was fixed
+			} else {
+				errorFixed = false;
+			}
 						
 			return new Array(indents, operator, lineLabel, time, threadLabel, errorInLine, errorFixed, chunkNames);
 		}
@@ -220,8 +214,599 @@ package classes {
 			
 			$.codeTxt.setTextFormat(errorred, beginIndex + chunkStartIndex + 1, beginIndex + chunkEndIndex - 1);
 		}
+
+		private static function solarizeBranchLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
+			lineLabel = "";
+			time = "";
+			threadLabel = "base";
+
+			// first color it magenta just like the methods
+			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
+			// then evaluate what the operator is error handle based on the type of operator
+			index = findNextItem(endIndex, lineTxt); 
+			
+			endIndex = (beginIndex + lineTxt.length);
+
+			var tokens: Array = clean(lineTxt).split(' ');
+			//trace(lineTxt);
+			//trace(clean(lineTxt));
+			
+			
+			//Gets rid of empty tokens caused by whitespace
+			switch (operator) {
+				case "createstate":
+					if (hasError(tokens, lineNum)) {
+						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+					} else {
+						createState(lineNum, tokens[1], tokens[2]);
+						if (endIndex > (index + beginIndex)) {
+							$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+						}
+					}
+					break;
+				case "setstate":
+					if (hasError(tokens, lineNum)) {
+						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+					} else {
+						setState(lineNum, tokens);
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+					}
+					break;
+				case "if":
+					if (hasError(tokens, lineNum)) {
+						//ErrorColorLine(lineNum);
+						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+					} else {
+						//should return int of next line to be processed based on the resolution
+						//of the if statement.
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+					}
+					break;
+				case "endif":
+					if (hasError(tokens, lineNum)) {
+						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+					} else if (endIndex < lineTxt.length) {
+						$.codeTxt.setTextFormat(magenta, beginIndex + index, endIndex);
+					}
+					//ignore EndIfs, but are useful in processing original statement.
+					break;
+				case "goto":
+					if (hasError(tokens, lineNum)) {
+						$.codeTxt.setTextFormat(errorred, beginIndex, endIndex);
+					} else {
+						$.codeTxt.setTextFormat(black, beginIndex + index, endIndex);
+					}
+					break;
+			}
+
+		}
+
+		//Filter Method to get rid of empty strings in token array.  Taken from example
+		//http://board.flashkit.com/board/showthread.php?805338-Remove-empty-elements-in-an-arry
+		private static function noEmpty(item: * , index: int, array: Array): Boolean {
+			return item != "";
+		}
+
+		// Purpose:  To determine if there is a syntax error in added operators
+		// Input: front trimmed line tokenized using space as dilimiter. 
+		//		  Operator should always be first token
+		//        Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
+		//		  Example:  GoTo,Goal:,hands,and,feet
+		// Output: Boolean 
+		//		   True if hasError.
+		//		   False if syntax is correct
+		//
+		// Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
+		//		  GenerateStepsArray when GoTo is processed.
+		private static function hasError(tokens: Array, lineNum:int): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			tokens = tokens.filter(noEmpty);
+
+			if (operator == "createstate" && !typing && !hintHoverOver && !operatorHoverOver) {
+				//CreateState name value extraStuff
+				//CreateState name
+				//Name already exists
+				if (tokens.length != 3) {
+					errorInLine = true;
+					$.errors[lineNum] = "I was expecting 2 arguments."
+					return true;
+				} else if ($.stateTable[tokens[1]] != undefined) {
+					errorInLine = true;
+					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
+					return true;
+				}
+			} else if (operator == "setstate") {
+				if(!(tokens.length == 3 || tokens.length == 4)){
+					errorInLine = true;
+					$.errors[lineNum] = "I was expecting 2 or 3 arguments."
+					return true;
+				} else if($.stateTable[tokens[1]] == undefined){
+					errorInLine = true;
+					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
+					return true;
+				} else if(tokens.length == 4){
+					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
+					if(isNaN(tokens[3])){
+						//trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
+						errorInLine = true;
+						$.errors[lineNum] = "3rd argument should be a number between 0 and 1"
+						return true;
+					} else {
+						var prob = Number(tokens[3]);
+						if(!(0<= prob && prob <= 1)){
+							errorInLine = true;
+							$.errors[lineNum] = "Probability number should be between 0 and 1"
+							return true;
+						}
+					}
+				}
+			} else if (operator == "if") {
+				if (tokens.length != 3) {
+					errorInLine = true;
+					$.errors[lineNum] = "I was expecting 2 arguments."
+					return true;
+				} else if ($.stateTable[tokens[1]] == undefined){
+					errorInLine = true;
+					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
+					return true;
+				} else {
+					// Check if it's missing an endif
+					if (findMatchingEndIf(lines, lineNum) == lines.length) {
+						errorInLine = true;
+						$.errors[lineNum] = "I was expecting an EndIf."
+						return true;
+					}
+				}
+			} else if (operator == "endif") {
+				if (tokens.length != 1) {
+					errorInLine = true;
+					$.errors[lineNum] = "I was not expecting any arguments."
+					return true;
+				}
+			} else if (operator == "goto") {
+				if (tokens.length <= 2) {
+					errorInLine = true;
+					$.errors[lineNum] = "I was expecting 2 arguments."
+					return true;
+				}
+				if (clean(tokens.slice(0, 2).join(" ").toLowerCase()) != "goto goal") {
+					//trace("cleaned up goto "+clean(tokens.slice(0, 2).join(" ").toLowerCase()));
+					errorInLine = true;
+					$.errors[lineNum] = "I was expecting something like 'goto goal'."
+					return true;
+				}
+				// Index all goals defined and check if goal exists
+				indexGoalLines(lines);
+				var goalLabel: String = tokens.slice(2, tokens.length).join(" ");
+				var goalLine = $.goalTable[goalLabel];
+				if (goalLine == undefined) {
+					errorInLine = true;
+					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
+					return true;
+				}
+				lineLabel = goalLabel;
+			}
+			
+			errorInLine = false;
+			return false;
+		}
+
+		// Purpose: Creates the inline steps for a goto loop so GomsProcessor can prepare its steps Array
+		// Input: 	gotoIndex, the index of the goto in the steps Array
+		//			goalIndex, the index in the goal index in the steps Array
+		//		  	steps, the steps Array passed in from GomsProcessor
+		// Output: The Array that holds all the inline steps
+		// SideEffect: Updates the state and if tables
+		public static function getInlineSteps(gotoIndex: int, goalIndex: int, steps: Array): Array {
+			// Check if it the goto can even be executed the first time through
+			var gotoLine:int = steps[gotoIndex].lineNo;
+			var withinIfIndex:int = withinIfBlock(gotoLine);
+			if (withinIfIndex != -1) {
+				var unevaluatedLines:Array = getUnevaluatedSteps();
+				var gotoExcluded:Boolean = unevaluatedLines.indexOf(gotoLine) != -1;
+				if (gotoExcluded) return [];
+			}
+			// Grab the relevant goals
+			var goalSteps:Array = steps.slice(goalIndex+1, gotoIndex+1);
+			// Prepare a final array
+			var finalGoalSteps:Array = new Array();
+			// This offset is for creating fake lists to determine new line numbers for subsequent
+			// iterations of the loop
+			var offset:int = gotoLine - goalSteps[0].lineNo;
+			// The goto line shifts when inlining so it will be updated in the process
+			var currentGotoLine:int = gotoLine;
+			var iter:int = 1;
+			var breakout:Boolean = false;
+			while (!breakout) {
+				// Push new steps onto the final array to return
+				for (var i:int = 0; i < goalSteps.length; i++) {
+					var step:Step = goalSteps[i];
+					var newLineNo:int = step.lineNo + offset*iter;
+					var newStep:Step = step.clone();
+					newStep.lineNo = newLineNo;
+					newStep.hint = false;
+					finalGoalSteps.push(newStep);
+				}
+				// Make changes to the $.ifStack and the $.stateTable according to new inline steps
+				addInlineStateChanges(goalSteps, offset*iter);
+				// Evaluate the new goal steps from the initial starting point to the new ending point,
+				// which is where we should be after the new inline steps were added
+				var unevaluatedLines:Array = getUnevaluatedSteps(goalSteps[0].lineNo, (currentGotoLine+offset*iter));
+				// Check whether the goto line was excluded, if so we break out of the inlining process
+				for (var i:int = 0; i < finalGoalSteps.length; i++) {
+					var step:Step = finalGoalSteps[i];
+					if (step.operator == "goto") {
+						var gotoExcludedIndex:int = unevaluatedLines.indexOf(step.lineNo);
+						var gotoExcluded:Boolean = gotoExcludedIndex != -1;
+						finalGoalSteps.splice(i, 1);
+						if (gotoExcluded) {
+							// Remove the goto line as well
+							breakout = true;
+						}
+					}
+				}
+				iter++;
+				// Check for infinite loops, there is an arbitrary limit of 20 jumps currently
+				if (iter >= MAX_JUMPS) {
+					// Let GomsProcessor know there has been an infinite loop
+					GomsProcessor.stackOverflow = true;
+					break;
+				}
+				// Update goto line with a new offset
+				currentGotoLine = currentGotoLine + offset*iter;
+			}
+			return finalGoalSteps;
+		}
+
+		// Purpose: Updates the state table with new inlined steps that are create/setstates for goto
+		// Input: goalSteps, the relevant steps Array
+		//		  offset, the amount to update the line numbers for old state objects
+		// Output: None
+		// SideEffect: Updates the state table with new inlined steps that are create/setstates
+		public static function addInlineStateChanges(goalSteps: Array, offset: int): void {
+			for (var i:int = 0; i < goalSteps.length; i++) {
+				var step:Step = goalSteps[i];
+				// Add 'new' if blocks with updated if and endif lines and reset truth
+				if (step.operator == "if") {
+					var ifBlock:Object = findIfBlock(step.lineNo);
+					var newIfBlock:Object = new Object();
+					newIfBlock.ifLine = ifBlock.ifLine + offset;
+					newIfBlock.key = ifBlock.key;
+					newIfBlock.value = ifBlock.value;
+					newIfBlock.truth = true;
+					newIfBlock.endIfLine = ifBlock.endIfLine + offset;
+					$.ifStack.push(newIfBlock);
+				}
+				// Add new createstate/setstate objects
+				if (step.operator == "createstate" || step.operator == "setstate") {
+					var stateChange:Object = findStateChangeIndex(step.lineNo);
+					var newStateChange:Object = new Object();
+					newStateChange.lineNo = stateChange.lineNo + offset;
+					newStateChange.key = stateChange.key;
+					newStateChange.value = stateChange.value;
+					newStateChange.valid = true;
+					$.stateTable[stateChange.key].push(newStateChange);
+				}						
+			}
+		}
+
+		// Convenience function for debugging if stack
+		public static function printIfBlocks(): void {
+			for (var i = 0; i < $.ifStack.length; i++) {
+				var ifBlock:Object = $.ifStack[i];
+				trace(ifBlock.ifLine + " if " + ifBlock.key + " " + ifBlock.value);
+			}
+		}
+
+		// Convenience function for debugging state table
+		public static function printStateTable(): void {
+			for (var key: Object in $.stateTable) {
+				var scopeList:Array = $.stateTable[key];
+				for (var i = 0; i < scopeList.length; i++) {
+					var stateChange:Object = scopeList[i];
+					trace(stateChange.lineNo+" state change "+stateChange.key + " "+stateChange.value);
+				}
+			}
+		}
+
+		// Purpose: Returns the ifBlock Object given the ifLine
+		// Input: ifLine, the line number of the ifBlock
+		// Output: The ifBlock if found, else null
+		// SideEffect: None
+		public static function findIfBlock(ifLine: int): Object {
+			for (var i = 0; i < $.ifStack.length; i++) {
+				if ($.ifStack[i].ifLine == ifLine) {
+					return $.ifStack[i];
+				}
+			}
+			return null;
+		}
+
+		// Purpose: Returns the createstate/setstate (state) Object that matches the given line number
+		// Input: lineNo, the line number in question
+		// Output: The state object that matches that line whether it's createstate or setstate
+		// SideEffect: None
+		public static function findStateChangeIndex(lineNo: int): Object {
+			for (var key: Object in $.stateTable) {
+				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
+				for (var i = 0; i < scopeList.length; i++) {
+					if (scopeList[i].lineNo == lineNo) {
+						return scopeList[i];
+					}
+				}
+			}
+			return null;
+		}
+
+		// Purpose: Evaluate all if blocks in $.ifStack and return an Array of line numbers to remove
+		// Input: none
+		// Output: Array holding all the line numbers for steps the GomsProcessor will remove
+		// SideEffect: changes truth value of if blocks and possibly valid attribute of state objects
+		public static function getUnevaluatedSteps(start: int = int.MIN_VALUE, end: int = int.MAX_VALUE): Array {
+			var unevaluatedLines:Array = new Array();
+			for (var i = 0; i < $.ifStack.length; i++) {
+				var ifBlock:Object = $.ifStack[i];
+				if (ifBlock.ifLine >= start && ifBlock.ifLine <= end) {
+					// check if the current if block is within another if block
+					var parentIfIndex:int = withinIfBlock(ifBlock.ifLine);
+					var parentIfBlock:Object;
+					if (parentIfIndex != -1) {
+						parentIfBlock = $.ifStack[parentIfIndex];
+					}
+					// if so, check if that parent if block is false
+					if (parentIfIndex != -1 && !parentIfBlock.truth) {
+						// if parent if block is false, we're done. 
+						// invalidate the if line and add unevaluated lines
+						gatherUnevaluatedLines(i, unevaluatedLines);
+						// continue on to the next if block to evaluate
+						continue;
+					}
+					// if you're here, it means current if block can be evaluated
+					// grab the latest state change before this if block that's valid to check against
+					var nextScope:Object = returnNextScope(ifBlock.ifLine, ifBlock.key);
+					var evaluation:Boolean = evaluateIfStatement(nextScope.value, ifBlock.value);
+					if (!evaluation) {
+						// if current if block is within a parent if block that's false, add lines
+						gatherUnevaluatedLines(i, unevaluatedLines);
+					}
+				}
+			}
+			return unevaluatedLines;
+		}
+
+		// Purpose: Make if block invalid and add all the unevualated lines to the passed in array
+		// Input: int ifBlockIndex, the index of the if block in $.ifStack
+		//		  Array unevaluatedLines, an array to hold all unevaluated line numbers
+		// Output: none
+		// SideEffect: adds lines to passed in array and can change the valid attribute of the state 
+		// 			   objects within the if block
+		public static function gatherUnevaluatedLines(ifBlockIndex: int, unevaluatedLines: Array): void {
+			// if block is no longer valid
+			$.ifStack[ifBlockIndex].truth = false; 
+			for (var j = $.ifStack[ifBlockIndex].ifLine; j <= $.ifStack[ifBlockIndex].endIfLine; j++) {
+				if (unevaluatedLines.indexOf(j) == -1) unevaluatedLines.push(j);
+			}
+			// find any create state, state within this if block and set them to invalid
+			invalidateStateChanges($.ifStack[ifBlockIndex].ifLine);
+		}
+
+		// Purpose: Invalidates all state changes made inside an if because it was false
+		// Input: int ifLine, the line number of the if line
+		// Output: none
+		// SideEffect: can change the valid attribute of the state object
+		public static function invalidateStateChanges(ifLine: int): void {
+			for (var key: Object in $.stateTable) {
+				var scopeList:Array = $.stateTable[key]; // clear out all $.stateTable
+				for (var i = 0; i < scopeList.length; i++) {
+					var parentIfIndex:int = withinIfBlock(scopeList[i].lineNo);
+					if (parentIfIndex != -1) {
+						var ifBlockIndex:int = $.ifStack[parentIfIndex].ifLine;
+						if (ifBlockIndex === ifLine) {
+							//trace("invalidate "+$.stateTable[key][i].lineNo);
+							$.stateTable[key][i].valid = false;
+						}
+					}
+				}
+			}
+		}
+
+		// Purpose: Determines whether a line is within an if block or not
+		// Input: int lineNo, the line number in question
+		// Output: index of the if block in $.ifStack if line is within an if block
+		//		   -1 if line is not within an if block
+		// SideEffect: none
+		public static function withinIfBlock(lineNo: int): int {
+			for (var i = $.ifStack.length-1; i > -1; i--) {
+				if ($.ifStack[i].ifLine < lineNo && $.ifStack[i].endIfLine > lineNo) {	
+					return i;
+				}
+			}
+			return -1;
+		}
+
+		// Purpose: Returns the next valid state change object, representing a createstate/setstate declaration
+		//			This method will start looking for the correct createstate/setstate line above the current
+		//		    if condition, so that we test the condition against the latest createstate or setstate.
+		//			It will also check whether it is the right createstate/setstate, e.g. not inside a false if
+		//			via checking the valid attribute of the state object.
+		// Input: int lineNo, line number of the if condition
+		//		  String ifKey, the state the if condition is testing
+		// Output: the correct if object if found, null otherwise
+		// SideEffect: none
+		public static function returnNextScope(lineNo: int, ifKey: String): Object {
+			var scopeList:Array = $.stateTable[ifKey];
+			for (var i = scopeList.length-1; i > -1; i--) {
+				var scopeLine:int = scopeList[i].lineNo;
+				if (scopeLine < lineNo && scopeList[i].valid) {
+					return scopeList[i];
+				}
+			}
+			return null;
+		}
+
+		// Purpose: Evaluates a given table value for a state and an if condition value
+		// Input: String tableValue, representing the value of the state in the $.stateTable
+		//		  String ifValue, the value the if condition is testing
+		// Output: true if condition is true, false otherwise
+		// SideEffect: none
+		public static function evaluateIfStatement(tableValue: String, ifValue: String): Boolean {
+			return (tableValue == ifValue);
+		}
+
+		// We might be able to remove this for checking infinite loops since we have $.ifStack
+		// Purpose: Finds next value of lineCounter. 
+		// Input: Array lines, the lines for the whole text in the editor
+		//		  int lineNum, lineNumber of Current If-statement
+		// Output: int: the lineNumber of the next statement to be processed
+		// SideEffect: none
+		public static function nextIfLine(lines: Array, lineNum: int):int {
+			for (var i = lineNum; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				if (tokens[0].toLowerCase() == "if") {
+					return i; // once the next if is found, return the index
+				}
+			}
+			return -1;
+		}
+
+		// Purpose: Returns the lineNumber of the matching EndIf
+		// Input: Array lines, representing all of the lines of the model
+		//		  int lineNum, the lineNumber of the current if statement
+		// Output: int of the matching EndIf
+		//		   if no ENDIF is found, returns entire length of lines
+		// Notes: Handles possible nested ifs
+		// SideEffect: creates an If Object that represents an if block with:
+		//			   ifLine, the line at which it is declared
+		//			   key, the key it is testing
+		//			   value, the value it is testing key against
+		//			   truth, whether it is true or false (true by default initially)
+		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
+			var numIfs: int = 0;
+			var numEndIfs: int = 0;
+			var ifIndices:Array = new Array();
+			for (var i = lineNum; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				if (tokens[0].toLowerCase() == "if") { //Handles nested ifs
+					var ifObject:Object = new Object();
+					ifObject.ifLine = i;
+					ifObject.key = tokens[1];
+					ifObject.value = tokens[2];
+					ifObject.truth = true;
+					//trace("pushing if on line "+i);
+					ifIndices.push(ifObject);
+					numIfs++; //for each if found, it must find an additional endif
+				} else if (tokens[0].toLowerCase() == "endif") {
+					numEndIfs++;
+					var ifObject = ifIndices.pop();
+					//trace("poping if on line "+ifLine);
+					if (numEndIfs == numIfs) {
+						//trace("found endif on line "+i + " for if line "+ifObject.ifLine);
+						ifObject.endIfLine = i;
+						$.ifStack.push(ifObject);
+						return i;
+					}
+				}
+			}
+			return lines.length;
+		}
 		
-		
+		// Purpose: Creates a new state in the stateTable, where the value is an Array.
+		// The Array holds a state Object that represents the declartion of that state
+		// with its line number, key (statename), value and whether or not it is valid for
+		// if conditions to check against.
+		// Input:  String key, String value (target1, visited)
+		// Output: none
+		// SideEffect:  An new entry in global stateTable is added
+		private static function createState(lineNo: int, key: String, value: String): void {
+			var state:Object = new Object();
+			state.lineNo = lineNo;
+			state.key = key;
+			state.value = value;
+			state.valid = true;
+			var scopeList:Array = new Array();
+			scopeList.push(state);
+			$.stateTable[key] = scopeList;
+		}
+
+		// Purpose: Changes an existing state in the stateTable by inserting a new state Object.
+		// The new state Object represents the state declaration of that state with its line number,
+		// key (statename), value and whether or not it is valid for if conditions to check against.
+		// Input: lineNo of the SetState and a line Array that represents the current line in text in tokens
+		// Two possible forms of the line:	
+		// (Form) String if, String key, String value (target1, visited)  OR
+		//		  String if, String key, String value (target1, visited), String probability (between 0 and 1) 
+		// Output: none
+		// SideEffect: An existing entry in global stateTable is changed
+		private static function setState(lineNo: int, line: Array): void {
+			var state:Object = new Object();
+			state.lineNo = lineNo;
+			state.key = line[1];
+			state.value = line[2];
+			state.valid = true;
+		//	trace("setting state at line "+lineNo+ " if "+state.key +" "+state.value+" "+state.valid);
+			if(line.length == 3){
+				// grab the scope list associated with the state and push the new scope in
+				$.stateTable[line[1]].push(state);
+			} else { //should have 4 tokens, SetState state_name value probability (number between 0-1) 
+				var randomNumber:Number = Math.random();
+				var givenProbability:Number = Number(line[3]);
+				if(randomNumber < givenProbability){
+					$.stateTable[line[1]].push(state);
+					//trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+				} else {
+					//trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
+				}
+			}
+		}
+
+
+		// Purpose: finds the lineNumbers of all goals in the program and stores them in the $.goalTable
+		// 			The value is an Object with attributes lineNo, start (start of actual steps), end
+		// Input: Array of lines representing the text on the editor
+		// Output: none
+		// SideEffect: makes entries of all the goals in the model in $.goalTable
+		// Notes: Creates scope objects for goals
+		private static function indexGoalLines(lines: Array): void {
+			for (var i = 0; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				var operator: String = tokens[0].toLowerCase();
+				if (operator == "goal") {
+					// Goal line assumed to be in the form "goal goal_name"
+					var goalName = tokens.slice(1, tokens.length).join(" ");
+					var goalObject = new Object();
+					goalObject.lineNo = i;
+					goalObject.end = determineGoalEnd(goalObject.lineNo, goalName, lines);
+					$.goalTable[goalName] = goalObject;
+				}
+			}
+		}
+
+		// Purpose: Finds the end of a goal by looking for the next goal or end of model
+		// Input: 	A goalLine to start the search
+		//			The goalName of the goal for which the end line is required 
+		//			Array of lines representing the text on the editor
+		// Output: The int representing the line index
+		// SideEffect: none
+		private static function determineGoalEnd(goalLine: int, goalName: String, lines: Array): int {
+			var end:int = goalLine;
+			for (var i = goalLine; i < lines.length; i++) {
+				var frontTrimmedLine: String = clean(lines[i]);
+				var tokens: Array = frontTrimmedLine.split(' ');
+				var operator: String = tokens[0].toLowerCase();
+				var goal = tokens.slice(1, tokens.length).join(" ");
+				if (operator == "goal" && goal != goalName) {
+					return end;
+				}
+				if (frontTrimmedLine != "") {
+					end = i;
+				}
+			}
+			return lines.length;
+		}
+
 		private static function solarizeGoalLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int):void {
 			$.codeTxt.setTextFormat(magenta, beginIndex + index, beginIndex + endIndex);
 			
@@ -249,10 +834,8 @@ package classes {
 			}
 		}
 		
-		
-		
 		private static function solarizeOperatorLine(lineTxt:String, index:int, lineNum:int, beginIndex:int, endIndex:int, lineStartIndex:int, chunkNamedInError:String):void {
-			threadLabel = ""; //setting for the return array			
+			threadLabel = "base"; //setting for the return array			
 			
 			//    -evaluate operator
 			var match:Boolean = false;
@@ -364,10 +947,45 @@ package classes {
 			}
 		
 		}
+
+		// Purpose: removes unnecessary characters (see trim), indents, and colons
+		// Input: String: raw line 
+		//	 	  Example: "...CreateState goal_name value"
+		// Output: String: trimmed line 
+		// Example: "CreateState goal_name value"
+		public static function clean(s: String): String {
+			return trimColon(trimIndents(trim(s)));
+		}
 			
-			
-		private static function trim(s:String):String {
+		private static function trim(s: String): String {
 			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
+		}
+
+		// Purpose: removes spaces and periods from front of line so that we can identify the operator
+		// Input: String: raw line 
+		//		  Example: "...CreateState goal_name value"
+		// Output: String: trimmed line 
+		//		   Example: "CreateState goal_name value"
+		public static function trimIndents(line: String): String {
+			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
+				line = line.substr(1);
+			}
+			return line;
+		}
+
+		// Purpose: removes all colons from a string to make it be optional for parsing
+		// Input: String: operator string
+		//	Example: "CreateState: goal_name value"
+		//  Output: String: trimmed operator 
+		//	Example: "CreateState goal_name value"
+		public static function trimColon(string: String): String {
+			var trimmed:String = string;
+			var colon:int = trimmed.indexOf(':');
+			while (colon != -1) {
+				trimmed = trimmed.substring(0, colon) + trimmed.substring(colon + 1, trimmed.length);
+				colon = trimmed.indexOf(':');
+			}
+			return trimmed;
 		}
 		
 		private static function countIdents(lineTxt:String):int {

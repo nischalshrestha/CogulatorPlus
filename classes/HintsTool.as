@@ -85,6 +85,7 @@ package classes  {
 
 		
 		private function showHintsCHI(evt:MouseEvent) {
+			SyntaxColor.hintHoverOver = true;
 			currentHint = 0;
 			_hintsCHI.visible = true;
 			_scrollBar.addEventListener(ScrollEvent.SCROLL, scrolled);
@@ -93,6 +94,7 @@ package classes  {
 		
 		
 		public function hideHintsCHI(event = null) {
+			SyntaxColor.hintHoverOver = false;
 			currentHint = 0;
 			_hintsCHI.visible = false;
 			_highlighter.visible = false;
@@ -168,37 +170,39 @@ package classes  {
 			
 			handsLocation = null; 
 			for each (var step:Step in $.gantt.intersteps) {
-				
-				if ( (step.operator == "say" || step.operator == "hear") && step.label == "") {
-					hintsArray.push({txt: "Say/Hear should have a label. It's used to calculate operator duration", lineNo: step.lineNo, type: "static_hint"});
-				} else if (step.operator == "type" && step.label == "") {
-					hintsArray.push({txt: "Type should have a label. It's used to calculate operator duration", lineNo: step.lineNo, type: "static_hint"});
-				}
-				
-				if (step.resource == "hands") {
-					if (handsLocation == null) {
-						if (step.operator == "point" || step.operator == "click") handsLocation = "mouse";
-						else handsLocation = "keyboard";
-					} else if (step.operator == "hands") { //operator rather than resource 
-						handsLocation = null //setting to null allows to work without setting location in label
-					} else if ((step.operator == "point" || step.operator == "click") && handsLocation == "keyboard") {
-						hintsArray.push({txt: "Add a hands to mouse operator?", lineNo: step.lineNo, type: "hint"});
-					} else if ((step.operator == "keystroke" || step.operator == "type") && handsLocation == "mouse"){
-						hintsArray.push({txt: "Add a hands to keyboard operator?", lineNo: step.lineNo, type: "hint"});
-					} else if (step.operator == "type" && step.label.substr(step.label.length - 1, 1) == " ") {
-						hintsArray.push({txt: "Heads up: The blank spaces at the end of your label affect task time.", lineNo: step.lineNo, type: "static_hint"});
+				// Only apply hints to real steps i.e. not intersteps created for goto loops
+				if (step.hint) {
+					if ( (step.operator == "say" || step.operator == "hear") && step.label == "") {
+						hintsArray.push({txt: "Say/Hear should have a label. It's used to calculate operator duration", lineNo: step.lineNo, type: "static_hint"});
+					} else if (step.operator == "type" && step.label == "") {
+						hintsArray.push({txt: "Type should have a label. It's used to calculate operator duration", lineNo: step.lineNo, type: "static_hint"});
 					}
-				}
-				
-				if (step.operator == "look" || step.operator == "search") {
-					lookNotTakenByPointOrTouch = true;
-				} else if (step.operator == "point" || step.operator == "touch") {
-					if (lookNotTakenByPointOrTouch) lookNotTakenByPointOrTouch = false;
-					else hintsArray.push({txt: "Add a Look before the " + step.operator +"?", lineNo: step.lineNo, type: "hint"});
-					if (step.operator == "point") pointNotTakenByClick = true;
-				} else if (step.operator == "click") {
-					if (pointNotTakenByClick) pointNotTakenByClick = false;
-					else hintsArray.push({txt: "Add a Point before the click?", lineNo: step.lineNo, type: "hint"});
+					
+					if (step.resource == "hands") {
+						if (handsLocation == null) {
+							if (step.operator == "point" || step.operator == "click") handsLocation = "mouse";
+							else handsLocation = "keyboard";
+						} else if (step.operator == "hands") { //operator rather than resource 
+							handsLocation = null //setting to null allows to work without setting location in label
+						} else if ((step.operator == "point" || step.operator == "click") && handsLocation == "keyboard") {
+							hintsArray.push({txt: "Add a hands to mouse operator?", lineNo: step.lineNo, type: "hint"});
+						} else if ((step.operator == "keystroke" || step.operator == "type") && handsLocation == "mouse"){
+							hintsArray.push({txt: "Add a hands to keyboard operator?", lineNo: step.lineNo, type: "hint"});
+						} else if (step.operator == "type" && step.label.substr(step.label.length - 1, 1) == " ") {
+							hintsArray.push({txt: "Heads up: The blank spaces at the end of your label affect task time.", lineNo: step.lineNo, type: "static_hint"});
+						}
+					}
+					
+					if (step.operator == "look" || step.operator == "search") {
+						lookNotTakenByPointOrTouch = true;
+					} else if (step.operator == "point" || step.operator == "touch") {
+						if (lookNotTakenByPointOrTouch) lookNotTakenByPointOrTouch = false;
+						else hintsArray.push({txt: "Add a Look before the " + step.operator +"?", lineNo: step.lineNo, type: "hint"});
+						if (step.operator == "point") pointNotTakenByClick = true;
+					} else if (step.operator == "click") {
+						if (pointNotTakenByClick) pointNotTakenByClick = false;
+						else hintsArray.push({txt: "Add a Point before the click?", lineNo: step.lineNo, type: "hint"});
+					}
 				}
 			}
 		}
@@ -297,7 +301,6 @@ package classes  {
 				//there appears to be an as3 bug that won't let me test getCharBoundaries for an error, so using try/catch
 			}
 		}
-		
 		
 		private function previewFixIt(evt:MouseEvent) {
 			var operatorText:String;

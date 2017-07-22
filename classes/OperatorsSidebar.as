@@ -148,13 +148,14 @@ package  classes {
 			if (description != null) opButton.operatorInfo.operatorDescription.text = description;
 			
 			opButton.addEventListener(MouseEvent.CLICK, onOperatorClick);
-			opButton.addEventListener(MouseEvent.MOUSE_OVER, onOperatorHover);			
+			opButton.addEventListener(MouseEvent.MOUSE_OVER, onOperatorHover);					
 			opButton.operatorInfoButton.addEventListener(MouseEvent.MOUSE_OVER, onOverOpInfoButton);
 			opButton.operatorInfoButton.addEventListener(MouseEvent.MOUSE_OUT, onOutOpInfoButton);
 			addChild(opButton);
 		}
 		
 		private function onOperatorHover(evt:MouseEvent):void {
+			SyntaxColor.operatorHoverOver = true;
 			insert.addOperatorPreview(evt.currentTarget, operatorText(evt.currentTarget));
 		}
 		

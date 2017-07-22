@@ -75,6 +75,9 @@ package {
 		var errors:Dictionary = new Dictionary();
 		var operatorArray:Array = new Array();
 
+		var stateTable: Dictionary = new Dictionary();
+		var goalTable: Dictionary = new Dictionary();
+
 		//    - create global variables object - 
 		var $:Global = Global.getInstance();
 		
@@ -108,7 +111,7 @@ package {
 		
 		//    - generate models sidebar - 
 		var modelsSideBar:ModelsSidebar;
-		var  modelsScrollBar:CustomScrollBar;
+		var modelsScrollBar:CustomScrollBar;
 		
 		
 		var defaultTimeLineDraggerX:Number;
@@ -135,6 +138,8 @@ package {
 			$.stage = this.stage;
 			$.codeTxt = codeTxt;
 			$.errors = errors;
+			$.stateTable = stateTable;
+			$.goalTable = goalTable;
 			$.automateButton = ganttWindow.automateButton;
 			
 			//stage setup - don't zoom
@@ -667,9 +672,9 @@ package {
 				var interSteps:Array = vars[3];
 				for(var j:int = 0; j<interSteps.length; j++){
 					var step:Step = interSteps[j];
-						if (step.endTime > curRunTime){
-							curRunTime = step.endTime;
-						}
+					if (step.endTime > curRunTime){
+						curRunTime = step.endTime;
+					}
 				}
 				//var curRunTime:Number = vars[3].;
 
