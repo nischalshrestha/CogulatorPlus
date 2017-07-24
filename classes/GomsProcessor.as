@@ -43,8 +43,6 @@ package classes {
 		private static var threadTracker: Dictionary; // tracks the active method for each thread
 		private static var resourceAvailability: Dictionary;
 		private static var threadAvailability: Dictionary;
-		private static var goalIndex: Dictionary;
-
 
 		private static var newThreadNumber: int; // = 0; //used as a thread name for "Also" when one is not provided
 
@@ -53,7 +51,7 @@ package classes {
 
 
 		private static var stateTable: Dictionary = new Dictionary();
-
+		private static var goalTable: Dictionary = new Dictionary();
 
 		public static function processGOMS(): Array {
 			maxEndTime = 0;
@@ -69,7 +67,6 @@ package classes {
 			threadTracker = new Dictionary(); //hashmap that tracks that active goal for each thread
 			resourceAvailability = new Dictionary();
 			threadAvailability = new Dictionary();
-			goalIndex = new Dictionary();
 
 			//(<resource name>, <time resource comes available>)
 			var to: TimeObject = new TimeObject(0, 0);
@@ -84,8 +81,10 @@ package classes {
 
 
 			for (var key: Object in $.errors) delete $.errors[key]; //clear out all $.errors
-			generateStepsArray();
+			for (var key: Object in stateTable) delete stateTable[key]; //clear out all $.errors
+			for (var key: Object in goalTable) delete goalTable[key]; //clear out all $.errors
 
+			generateStepsArray();
 
 
 			if (steps.length > 0) processStepsArray(); //processes and then interleaves steps
@@ -100,11 +99,8 @@ package classes {
 			var endIndex: int = codeLines[0].length;
 			stateTable = new Dictionary();
 			var jumps:int = 0;
-
 			//Color all lines since GoTo skips some lines, but we don't want them to be gray. 
 			SyntaxColor.solarizeAll();
-
-			
 			
 			for (var lineIndex: int = 0; lineIndex < codeLines.length; lineIndex++) {
 				var line = codeLines[lineIndex];
@@ -112,25 +108,25 @@ package classes {
 				endIndex = beginIndex + line.length;
 
 				if (StringUtils.trim(line) != "") {
-					var frontTrimmedLine: String = trimIndents(codeLines[lineIndex]);
+					var frontTrimmedLine: String = clean(codeLines[lineIndex]);
 					var tokens: Array = frontTrimmedLine.split(' ');
 					switch (tokens[0].toLowerCase()) {
 						case "createstate":
-							if (hasError(tokens)) {
+							if (hasError(tokens, lineIndex)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								createState(tokens[1], tokens[2]);
 							}
 							break;
 						case "setstate":
-							if (hasError(tokens)) {
+							if (hasError(tokens, lineIndex)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								setState(tokens);
 							}
 							break;
 						case "if":
-							if (hasError(tokens)) {
+							if (hasError(tokens, lineIndex)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
 								//should return int of next line to be processed based on the resolution
@@ -139,7 +135,7 @@ package classes {
 							}
 							break;
 						case "endif":
-							if (hasError(tokens)) {
+							if (hasError(tokens, lineIndex)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							}
 							//ignore EndIfs, but are useful in processing original statement.
@@ -147,16 +143,15 @@ package classes {
 						case "goto":
 							//Checks for infinite loops and syntax errors
 							//Jumps are limited to 25, after which all jumps will be considered errors and not processed.
-							if (jumps > 25 || hasError(tokens)) {
+							if (hasError(tokens, lineIndex, jumps)) {
 								SyntaxColor.ErrorColorLine(lineIndex);
 							} else {
-								//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-								var goalName = frontTrimmedLine.substring(frontTrimmedLine.indexOf(':') + 2, frontTrimmedLine.length);
-								var goalTable: Dictionary = indexGoalLines(codeLines);
-								if(goalTable[goalName] !== undefined){
-									lineIndex = goalTable[goalName] - 1;
+								//line should be in the form "GoTo Goal: goal_name" (name can contain spaces, colons are optional) 
+								var goalLabel: String = tokens.slice(2, tokens.length).join(" ");
+								if(goalTable[goalLabel] !== undefined){
+									lineIndex = goalTable[goalLabel] - 1;
 									jumps++;
-								}else{
+								} else {
 									SyntaxColor.ErrorColorLine(lineIndex);
 								}
 							}
@@ -172,83 +167,135 @@ package classes {
 
 		}
 
+		// Purpose:  To determine if there is a syntax error in added operators
+		// Input: front trimmed line tokenized using space as dilimiter. 
+		//		  Operator should always be first token
+		//        Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
+		//		  Example:  GoTo,Goal:,hands,and,feet
+		//		  
+		//		  A lineNum representing the index of the line
+		//		  An optional jumps argument for detecting infinite loops for got
+		// Output: Boolean 
+		//		   True if hasError.
+		//		   False if syntax is correct
+		//
+		// Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
+		//		  GenerateStepsArray when GoTo is processed.
+		private static function hasError(tokens: Array, lineNum:int, jumps:int = 0): Boolean {
+			var lines:Array = $.codeTxt.text.split("\r");
+			tokens = tokens.filter(noEmpty);
+			var operator = tokens[0].toLowerCase();
+			if (operator == "createstate") {
+				//CreateState name value extraStuff
+				//CreateState name
+				//Name already exists
+				if (tokens.length != 3) {
+					$.errors[lineNum] = "I was expecting 2 arguments."
+					return true;
+				} else if (stateTable[tokens[1]] != undefined) {
+					$.errors[lineNum] = "'"+tokens[1]+"' already exists."
+					return true;
+				}
+			} else if (operator == "setstate") {
+				if(!(tokens.length == 3 || tokens.length == 4)){
+					$.errors[lineNum] = "I was expecting 2 or 3 arguments."
+					return true;
+				} else if(stateTable[tokens[1]] == undefined){
+					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
+					return true;
+				} else if(tokens.length == 4){
+					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
+					if(isNaN(tokens[3])){
+						//trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
+						$.errors[lineNum] = "3rd argument should be a number between 0 and 1"
+						return true;
+					} else {
+						var prob = Number(tokens[3]);
+						if(!(0<= prob && prob <= 1)){
+							$.errors[lineNum] = "Probability number should be between 0 and 1"
+							return true;
+						}
+					}
+				}
+			} else if (operator == "if") {
+				if (tokens.length != 3) {
+					$.errors[lineNum] = "I was expecting 2 arguments."
+					return true;
+				} else if (stateTable[tokens[1]] == undefined){
+					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
+					return true;
+				} else {
+					// Check if it's missing an endif
+					if (findMatchingEndIf(lines, lineNum) == lines.length) {
+						$.errors[lineNum] = "I was expecting an EndIf."
+						return true;
+					}
+				}
+			} else if (operator == "endif") {
+				if (tokens.length != 1) {
+					$.errors[lineNum] = "I was not expecting any arguments."
+					return true;
+				}
+			} else if (operator == "goto") {
+				if (tokens.length <= 2) {
+					$.errors[lineNum] = "I was expecting 2 arguments."
+					return true;
+				}
+				if (clean(tokens.slice(0, 2).join(" ").toLowerCase()) != "goto goal") {
+					//trace("cleaned up goto "+clean(tokens.slice(0, 2).join(" ").toLowerCase()));
+					$.errors[lineNum] = "I was expecting something like 'goto goal'."
+					return true;
+				}
+				// Index all goals defined and check if goal exists
+				indexGoalLines(lines);
+				var goalLabel: String = tokens.slice(2, tokens.length).join(" ");
+				var goalLine = goalTable[goalLabel];
+				if (goalLine == undefined) {
+					$.errors[lineNum] = "'"+goalLabel+"' does not exist."
+					return true;
+				}
+				if (jumps > 25) {
+					$.errors[lineNum] = "I ran into an infinite loop."
+					return true;
+				}
+			}
+			
+			return false;
+		}
+
 		
 		//Filter Method to get rid of empty strings in token array.  Taken from example
 		//http://board.flashkit.com/board/showthread.php?805338-Remove-empty-elements-in-an-arry
 		private static function noEmpty(item: * , index: int, array: Array): Boolean {
 			return item != "";
 		}
-		
-		
-		//Purpose:  To determine if there is a syntax error in added operators
-		//Input: front trimmed line tokenized using space as dilimiter. 
-		//		 Operator should always be first token
-		//       Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
-		//		 Example:  GoTo,Goal:,hands,and,feet
-		//Output: Boolean 
-		//		  True if hasError.
-		//		  False if syntax is correct
-		//
-		//Notes: This function also checks for context errors such as states being defined twice
-		//		 or trying access a state that doesn't exist.  Because of this, errors must be 
-		//		 checked during processing instead of in ColorSyntax.
-		//	
-		//		 Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
-		//		 GenerateStepsArray when GoTo is processed.
-		
-		private static function hasError(tokens: Array): Boolean {
-			//Gets rid of empty tokens caused by whitespace
-			tokens = tokens.filter(noEmpty);
 
 
-			if (tokens[0].toLowerCase() == "createstate") {
-				//CreateState name value extraStuff
-				//CreateState name
-				//Name already exists
-				if (tokens.length != 3 ||
-					stateTable[tokens[1]] !== undefined
-				)
-					return true;
-			} else if (tokens[0].toLowerCase() == "setstate") {
-				if(!(tokens.length == 3 || tokens.length == 4)){
-					return true;
-				}
-				else if(stateTable[tokens[1]] == undefined){
-					return true;
-				}
-				else if(tokens.length == 4){
-					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
-					if(isNaN(tokens[3])){
-						trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
-						return true;
-					} else {
-						var prob = Number(tokens[3]);
-						if(!(0<= prob && prob <= 1)){
-							return true;
-						}
-					}
-				}
-			} else if (tokens[0].toLowerCase() == "if") {
-				if (tokens.length != 3 ||
-					stateTable[tokens[1]] == undefined
-				)
-					return true;
-			} else if (tokens[0].toLowerCase() == "endif") {
-				if (tokens.length != 1)
-					return true;
-			} else if (tokens[0].toLowerCase() == "goto") {
-				if (tokens.length <= 2)
-					return true;
-				if (tokens.slice(0, 2).join(" ").toLowerCase() != "goto goal:")
-					return true;
-				//line should be in the form "GoTo Goal: goal_name" (name can contain spaces)
-				/*				var goalName = tokens.slice(2,tokens.length).join(" ");
-				var goalTable: Dictionary = indexGoalLines(codeLines);
-				if(goalTable[goalName] == undefined)
-					return true;*/
+		// Purpose: removes unnecessary characters (see trim), indents, and colons
+		// Input: String: raw line 
+		//	 	  Example: "...CreateState goal_name value"
+		// Output: String: trimmed line 
+		// Example: "CreateState goal_name value"
+		public static function clean(s: String): String {
+			return trimColon(trimIndents(trim(s)));
+		}
+		// Purpose: removes all colons from a string to make it be optional for parsing
+		// Input: String: operator string
+		//	Example: "CreateState: goal_name value"
+		//  Output: String: trimmed operator 
+		//	Example: "CreateState goal_name value"
+		public static function trimColon(string: String): String {
+			var trimmed:String = string;
+			var colon:int = trimmed.indexOf(':');
+			while (colon != -1) {
+				trimmed = trimmed.substring(0, colon) + trimmed.substring(colon + 1, trimmed.length);
+				colon = trimmed.indexOf(':');
 			}
-
-			return false;
+			return trimmed;
+		}
+			
+		private static function trim(s:String):String {
+			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
 		}
 
 		//Purpose:  Find the "beginIndex" used in process steps array. should be the sum 
@@ -559,10 +606,10 @@ package classes {
 			return noComment;
 		}
 
-		//Purpose: removes spaces and periods from front of line so that we can identify the operator
-		//Input: String: raw line 
+		// Purpose: removes spaces and periods from front of line so that we can identify the operator
+		// Input: String: raw line 
 		//	Example: "...CreateState goal_name value"
-		//Output: String: trimmed line 
+		// Output: String: trimmed line 
 		//	Example: "CreateState goal_name value"
 		private static function trimIndents(line: String): String {
 			while (line.length > 0 && line.charAt(0) == ' ' || line.charAt(0) == '.') {
@@ -571,21 +618,20 @@ package classes {
 			return line;
 		}
 
-		//Purpose: Creates new state in the stateTable, all values are represented as strings.
-		//Input: String key, String value (target1, visited)
-		//Output: none
-		//	SideEffect:  An new entry in global stateTable is added
+		// Purpose: Creates new state in the stateTable, all values are represented as strings.
+		// Input: String key, String value (target1, visited)
+		// Output: none
+		// SideEffect:  An new entry in global stateTable is added
 		private static function createState(key: String, value: String) {
 			stateTable[key] = value;
 		}
 
-		//Purpose: Changes an existing state in the stateTable, all values are represented as strings.
-		//Input: Array:String line		
-		//(Form) String key, String value (target1, visited)  OR
+		// Purpose: Changes an existing state in the stateTable, all values are represented as strings.
+		// Input: Array:String line		
+		// (Form) String key, String value (target1, visited)  OR
 		//		 String key, String value (target1, visited), String probability (between 0 and 1) 
-
-		//Output: none
-		//	SideEffect:  An existing entry in global stateTable is changed
+		// Output: none
+		// SideEffect:  An existing entry in global stateTable is changed
 		private static function setState(line: Array) {
 			if(line.length == 3){
 				//trace("Found straight case.\n")
@@ -605,37 +651,30 @@ package classes {
 			
 		}
 
-
-		//Purpose: finds the lineNumbers of all goals in the program
-		//Input: None
-		//Output: Dictionary of goals and lines in the form: 
-		//		key: goal_name
-		//		value: lineNumber
-		//Notes: Does not enforce scope
-		//		 Goal line assumed to be in the form "...Goal: goal_name"
-		private static function indexGoalLines(lines: Array): Dictionary {
-			var goalIndexesByName = new Dictionary(); //key = goal_name, val=index
-			
+		// Purpose: finds the lineNumbers of all goals in the program and stores them in the $.goalTable
+		// 			The value is an Object with attributes lineNo, start (start of actual steps), end
+		// Input: Array of lines representing the text on the editor
+		// Output: none
+		// SideEffect: makes entries of all the goals in the model in $.goalTable
+		// Notes: Creates scope objects for goals
+		private static function indexGoalLines(lines: Array): void {
 			for (var i = 0; i < lines.length; i++) {
-				var frontTrimmedLine: String = trimIndents(lines[i]);
+				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "Goal:") {
-					//Goal line assumed to be in the form "Goal: goal_name"
-					var goalName = frontTrimmedLine.substring(6, frontTrimmedLine.length);
-					goalIndexesByName[goalName] = i;
+				var operator: String = tokens[0].toLowerCase();
+				if (operator == "goal") {
+					// Goal line assumed to be in the form "goal goal_name"
+					var goalName = tokens.slice(1, tokens.length).join(" ");
+					goalTable[goalName] = i;
 				}
 			}
-			return goalIndexesByName;
 		}
-
-
-
 		
-		//Purpose: Finds next value of lineCounter. 
-		//Input: Int lineCounter: lineNumber of Current If-statement
-		//Output: int: the lineNumber of the next statement to be processed
-		//	ifTrue: lineCounter - continue processing where you are.
-		//	ifFalse: the line of the matching EndIf;
+		// Purpose: Finds next value of lineCounter. 
+		// Input: Int lineCounter: lineNumber of Current If-statement
+		// Output: int: the lineNumber of the next statement to be processed
+		// ifTrue: lineCounter - continue processing where you are.
+		// ifFalse: the line of the matching EndIf;
 		private static function nextIfLine(lines: Array, lineCounter: int): int {
 			var ifIsTrue: Boolean = evaluateIfStatement(trimIndents(lines[lineCounter]));
 			if (ifIsTrue) {
@@ -647,26 +686,26 @@ package classes {
 			}
 		}
 
-
-		//Purpose: Returns the lineNumber of the matching EndIf
-		//Input: Int lineCounter, the lineNumber of the current if statement
-		//Output: int of the matching EndIf
-		//		  if no ENDIF is found, returns end of program
-		//Notes: Should handle nested ifs (fingers crossed)  
-		//		 This method only runs when lines are to be skipped.
-		//		 However, lines should still be colorized, so solarizeLine is called regardless
-		private static function findMatchingEndIf(lines: Array, lineCounter: int): int {
-			var numIfs: int = 1;
+		// Purpose: Returns the lineNumber of the matching EndIf
+		// Input: Array lines, representing all of the lines of the model
+		//		  int lineNum, the lineNumber of the current if statement
+		// Output: int of the matching EndIf
+		//		   if no ENDIF is found, returns entire length of lines
+		// Notes: Handles possible nested ifs
+		// SideEffect: None besides solarizing the line
+		public static function findMatchingEndIf(lines: Array, lineNum: int): int {
+			var numIfs: int = 0;
 			var numEndIfs: int = 0;
-			for (var i = lineCounter + 1; i < lines.length; i++) {
+			for (var i = lineNum; i < lines.length; i++) {
 				SyntaxColor.solarizeLine(i);
-				var frontTrimmedLine: String = trimIndents(lines[i]);
+				var frontTrimmedLine: String = clean(lines[i]);
 				var tokens: Array = frontTrimmedLine.split(' ');
-				if (tokens[0] == "If") { //Handles nested ifs
+				if (tokens[0].toLowerCase() == "if") { //Handles nested ifs
 					numIfs++; //for each if found, it must find an additional endif
-				} else if (tokens[0] == "EndIf") {
+				} else if (tokens[0].toLowerCase() == "endif") {
 					numEndIfs++;
 					if (numEndIfs == numIfs) {
+						//trace("found endif on line "+i + " for if line "+ifObject.ifLine);
 						return i;
 					}
 				}
@@ -675,12 +714,11 @@ package classes {
 		}
 
 
-		//Purpose: Checks the truth value of the input against the statetable
-		//Input: String ifLine: already frontTrimmed line (If this_state isTrue)
-		//Output: Boolean: if an entry in StateTable matches exactly the key and value
-		//
-		//Hint: if debugging, check that whitespace characters have been trimmed
-		//in both the table and the input
+		// Purpose: Checks the truth value of the input against the statetable
+		// Input: String ifLine: already frontTrimmed line (If this_state isTrue)
+		// Output: Boolean: if an entry in StateTable matches exactly the key and value
+		// Hint: if debugging, check that whitespace characters have been trimmed
+		// in both the table and the input
 		private static function evaluateIfStatement(ifLine: String): Boolean {
 			//input must be in the form "If key value"
 			var key: String = ifLine.split(' ')[1];
