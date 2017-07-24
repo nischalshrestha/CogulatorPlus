@@ -93,6 +93,12 @@ package classes {
 		}
 
 
+		
+		// Purpose: Iterates through the model to color, error check, and create the "Step" object.
+		// Input: None
+		// Output: None
+		//
+		// Notes: Cog+ modifies this method heavily.  New operators modify the line pointer during execution
 		private static function generateStepsArray() {
 			var codeLines: Array = $.codeTxt.text.split("\r");
 			var beginIndex: int = 0;
@@ -168,20 +174,21 @@ package classes {
 
 		}
 
-		// Purpose:  To determine if there is a syntax error in added operators
-		// Input: front trimmed line tokenized using space as dilimiter. 
-		//		  Operator should always be first token
-		//        Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
-		//		  Example:  GoTo,Goal:,hands,and,feet
-		//		  
+		// Purpose:  To determine if there is a syntax error in cog+ operators
+		// Input: Front trimmed line tokenized using space as dilimiter. 
+		//		  	Operator should always be first token
+		//        	Example:  CreateState,target1,isFriendly,,,  <-whitespace at end of line
+		//		  	Example:  GoTo,Goal:,hands,and,feet
 		//		  A lineNum representing the index of the line
-		//		  An optional jumps argument for detecting infinite loops for got
+		//		  An optional jumps argument for detecting infinite loops for goto
 		// Output: Boolean 
 		//		   True if hasError.
 		//		   False if syntax is correct
 		//
 		// Notes: Does not handle infinite loops or invalid GoTo jumps.  Those are handled in
 		//		  GenerateStepsArray when GoTo is processed.
+		//		  Empty (whitespace) tokens are removed before processing so that no field will be empty
+		
 		private static function hasError(tokens: Array, lineNum:int, jumps:int = 0): Boolean {
 			var lines:Array = $.codeTxt.text.split("\r");
 			tokens = tokens.filter(noEmpty);
@@ -198,26 +205,13 @@ package classes {
 					return true;
 				}
 			} else if (operator == "setstate") {
-				if(!(tokens.length == 3 || tokens.length == 4)){
-					$.errors[lineNum] = "I was expecting 2 or 3 arguments."
+				if(tokens.length != 3){
+					$.errors[lineNum] = "I was expecting 2  arguments."
 					return true;
 				} else if(stateTable[tokens[1]] == undefined){
 					$.errors[lineNum] = "'"+tokens[1]+"' does not exist."
 					return true;
-				} else if(tokens.length == 4){
-					//Make sure the last field is a number between 0 and 1 inclusive on both sides.
-					if(isNaN(tokens[3])){
-						//trace("NaN: " + tokens[3] + " " + isNaN(tokens[4]));
-						$.errors[lineNum] = "3rd argument should be a number between 0 and 1"
-						return true;
-					} else {
-						var prob = Number(tokens[3]);
-						if(!(0<= prob && prob <= 1)){
-							$.errors[lineNum] = "Probability number should be between 0 and 1"
-							return true;
-						}
-					}
-				}
+				} 
 			} else if (operator == "if") {
 				if (tokens.length != 3) {
 					$.errors[lineNum] = "I was expecting 2 arguments."
@@ -239,7 +233,7 @@ package classes {
 				}
 			} else if (operator == "goto") {
 				if (tokens.length <= 2) {
-					$.errors[lineNum] = "I was expecting 2 arguments."
+					$.errors[lineNum] = "Goto takes the form \"Goto Goal: goal_name\"."
 					return true;
 				}
 				if (clean(tokens.slice(0, 2).join(" ").toLowerCase()) != "goto goal") {
@@ -280,6 +274,8 @@ package classes {
 		public static function clean(s: String): String {
 			return trimColon(trimIndents(trim(s)));
 		}
+		
+		
 		// Purpose: removes all colons from a string to make it be optional for parsing
 		// Input: String: operator string
 		//	Example: "CreateState: goal_name value"
@@ -299,7 +295,7 @@ package classes {
 			return s.replace(/^[\s|\t|\n]+|[\s|\t|\n]+$/gs, '');
 		}
 
-		//Purpose:  Find the "beginIndex" used in process steps array. should be the sum 
+		//Purpose:  Find the "beginIndex" used in process steps array. Should be the sum 
 		//			of the length of all lines that came before. Necessary for line jumping
 		// 			for if's and goTos.
 		//
@@ -629,25 +625,13 @@ package classes {
 
 		// Purpose: Changes an existing state in the stateTable, all values are represented as strings.
 		// Input: Array:String line		
-		// (Form) String key, String value (target1, visited)  OR
-		//		 String key, String value (target1, visited), String probability (between 0 and 1) 
+		// 		  (Form) Operator, String key, String value 
+		//		  Example: setstate, target1, visited  
 		// Output: none
 		// SideEffect:  An existing entry in global stateTable is changed
 		private static function setState(line: Array) {
 			if(line.length == 3){
-				//trace("Found straight case.\n")
 				stateTable[line[1]] = line[2];
-			} else { //should have 4 tokens, SetState state_name value probability (number between 0-1) 
-				var randomNumber:Number = Math.random();
-				var givenProbability:Number = Number(line[3]);
-				
-				if(randomNumber < givenProbability){
-					stateTable[line[1]] = line[2];
-					//trace("Successfully set: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
-				} else {
-					//trace("RandomNumber did not exceed threshold: " + line[0] + " " + line[1] + " " + line[2] + " " + line[3]);
-				}
-			
 			}
 			
 		}
@@ -657,7 +641,6 @@ package classes {
 		// Input: Array of lines representing the text on the editor
 		// Output: none
 		// SideEffect: makes entries of all the goals in the model in $.goalTable
-		// Notes: Creates scope objects for goals
 		private static function indexGoalLines(lines: Array): void {
 			for (var i = 0; i < lines.length; i++) {
 				var frontTrimmedLine: String = clean(lines[i]);
@@ -672,7 +655,9 @@ package classes {
 		}
 		
 		// Purpose: Finds next value of lineCounter. 
-		// Input: Int lineCounter: lineNumber of Current If-statement
+		// Input:  Array lines:  Model text deliniated by line
+		//		   int lineCounter: lineNumber of Current If-statement
+		//
 		// Output: int: the lineNumber of the next statement to be processed
 		// ifTrue: lineCounter - continue processing where you are.
 		// ifFalse: the line of the matching EndIf;

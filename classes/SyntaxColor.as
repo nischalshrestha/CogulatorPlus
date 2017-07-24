@@ -63,6 +63,8 @@ package classes {
 		magenta.color = SolarizedPalette.magenta;
 		errorred.color = SolarizedPalette.errorred;
 		
+		
+		//Called from GOMSProcessor to colorize and error check lines that are not evaluated in Cog+ functionality
 		public static function solarizeAll():void{
 			var codeLines:Array = $.codeTxt.text.split("\r");
 			var beginIndex:int = 0;
@@ -101,7 +103,7 @@ package classes {
 		//Purpose:  Color the line specified.  Created for Cog+ functionality
 		//Input: line number to be colorized.
 		//Output: none.
-		//SideEffect: The line should be colored.  Other side effects are TBD.
+		//SideEffect: The line should be colored and errors will be checked.  Other side effects are TBD.
 		public static function solarizeLine(lineNumber:int) {
 			//get line number based on caret position
 			var begindex = WrappedLineUtils.getLineIndex($.codeTxt, lineNumber);

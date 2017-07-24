@@ -130,19 +130,6 @@ package classes {
 				return true;
 			}
 			
-			index = -1;
-			while ( (index = txt.indexOf("If", index + 1) ) != -1){
-				return true;
-			}
-			index = -1;
-			while ( (index = txt.indexOf("SetState", index + 1) ) != -1){
-				return true;
-			}
-			
-			index = -1;
-			while ( (index = txt.indexOf("CreateState", index + 1) ) != -1){
-				return true;
-			}
 			return false;
 		}
 		
