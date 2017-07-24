@@ -110,6 +110,7 @@ package classes {
 				if (StringUtils.trim(line) != "") {
 					var frontTrimmedLine: String = clean(codeLines[lineIndex]);
 					var tokens: Array = frontTrimmedLine.split(' ');
+					tokens = tokens.filter(noEmpty);
 					switch (tokens[0].toLowerCase()) {
 						case "createstate":
 							if (hasError(tokens, lineIndex)) {

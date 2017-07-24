@@ -174,13 +174,13 @@ package  classes {
 			} else if (operatorButton.appelation == "GoTo"){
 				return (operatorButton.appelation + ": goal_name");
 			} else if (operatorButton.appelation == "If"){
-				return (operatorButton.appelation + ": state_name value");
+				return (operatorButton.appelation + " state_name value");
 			} else if (operatorButton.appelation == "EndIf"){
 				return (operatorButton.appelation);
 			} else if (operatorButton.appelation == "CreateState"){
-				return (operatorButton.appelation + ": state_name value");
+				return (operatorButton.appelation + " state_name value");
 			} else if (operatorButton.appelation == "SetState"){
-				return (operatorButton.appelation + ": state_name value");
+				return (operatorButton.appelation + " state_name value");
 			} else if (operatorButton.appelation == "Say" || operatorButton.appelation == "Hear") {
 				return(operatorButton.appelation + " *be sure to include the words that are said or heard");
 			} else if (operatorButton.appelation == "Type") {
