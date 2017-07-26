@@ -1,3 +1,5 @@
+### Please refer to the branch "old_with_errors" for the branching functionality which as recently been integrated to the main Cogulator repo [here](https://github.com/Cogulator/Cogulator). The master is currently on hold for not being robust / efficient enough.
+
 #Cogulator
 A Cognitive Modeling Calculator  
 [cogulator.io](http://cogulator.io)
