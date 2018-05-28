@@ -1,3 +1,5 @@
+## Note: this is deprecated and not maintained. Please see original [repo](https://github.com/Cogulator/Cogulator).
+
 #Cogulator
 A Cognitive Modeling Calculator  
 [cogulator.io](http://cogulator.io)
